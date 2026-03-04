@@ -111,6 +111,7 @@ export const GET_TASKS = gql`
       status
       priority
       projectId
+      listId
       assignedToId
       startDate
       dueDate
@@ -130,6 +131,7 @@ export const GET_TASKS = gql`
         status
         priority
         projectId
+        listId
         assignedToId
         dueDate
         estimatedTime
@@ -147,6 +149,7 @@ export const GET_TASKS = gql`
           status
           priority
           projectId
+          listId
           assignedToId
           parentTaskId
         }
@@ -161,6 +164,7 @@ export const GET_TASKS_FOR_SELECTION = gql`
       id
       title
       projectId
+      listId
       parentTaskId
       parentTask {
         id
@@ -171,6 +175,54 @@ export const GET_TASKS_FOR_SELECTION = gql`
         name
       }
     }
+  }
+`;
+
+export const GET_TASK_LISTS = gql`
+  query GetTaskLists($projectId: String!) {
+    taskLists(projectId: $projectId) {
+      id
+      projectId
+      name
+      description
+      order
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const CREATE_TASK_LIST = gql`
+  mutation CreateTaskList($input: CreateTaskListInput!) {
+    createTaskList(input: $input) {
+      id
+      projectId
+      name
+      description
+      order
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_TASK_LIST = gql`
+  mutation UpdateTaskList($id: String!, $input: UpdateTaskListInput!) {
+    updateTaskList(id: $id, input: $input) {
+      id
+      projectId
+      name
+      description
+      order
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_TASK_LIST = gql`
+  mutation DeleteTaskList($id: String!) {
+    deleteTaskList(id: $id)
   }
 `;
 
@@ -262,6 +314,7 @@ export const CREATE_TASK = gql`
       status
       priority
       projectId
+      listId
       assignedToId
       startDate
       dueDate
@@ -280,6 +333,7 @@ export const CREATE_TASK = gql`
         status
         priority
         projectId
+        listId
         parentTaskId
       }
     }

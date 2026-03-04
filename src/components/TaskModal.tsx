@@ -10,7 +10,8 @@ export default function TaskModal({
     onClose,
     onSave,
     projects,
-    users
+    users,
+    lists,
 }: {
     task: any | null;
     parentTask: { id: string; projectId: string; title: string } | null;
@@ -19,12 +20,14 @@ export default function TaskModal({
     onSave: (data: any) => void;
     projects: any[];
     users: any[];
+    lists: any[];
 }) {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         priority: 'MEDIUM',
         projectId: '',
+        listId: '',
         assignedToId: '',
         dueDate: '',
         estimatedTime: '',
@@ -37,6 +40,7 @@ export default function TaskModal({
                 description: task.description || '',
                 priority: task.priority || 'MEDIUM',
                 projectId: task.projectId || (task.project?.id ?? ''),
+                listId: task.listId || '',
                 assignedToId: task.assignedToId || '',
                 dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                 estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
@@ -47,6 +51,7 @@ export default function TaskModal({
                 description: '',
                 priority: 'MEDIUM',
                 projectId: parentTask.projectId,
+                listId: '',
                 assignedToId: '',
                 dueDate: '',
                 estimatedTime: '',
@@ -57,6 +62,7 @@ export default function TaskModal({
                 description: '',
                 priority: 'MEDIUM',
                 projectId: '',
+                listId: '',
                 assignedToId: '',
                 dueDate: '',
                 estimatedTime: '',
@@ -81,6 +87,7 @@ export default function TaskModal({
             projectId: formData.projectId || parentTask?.projectId,
             estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
         };
+        if (formData.listId) submitData.listId = formData.listId;
         if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
         if (formData.dueDate) {
             const dueDate = new Date(formData.dueDate);
@@ -144,20 +151,37 @@ export default function TaskModal({
                                 </div>
                             </div>
                         ) : (
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project *</label>
-                                <select
-                                    required
-                                    value={formData.projectId}
-                                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                >
-                                    <option value="">Select Project</option>
-                                    {projects.map((project: any) => (
-                                        <option key={project.id} value={project.id}>{project.name}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project *</label>
+                                    <select
+                                        required
+                                        value={formData.projectId}
+                                        onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    >
+                                        <option value="">Select Project</option>
+                                        {projects.map((project: any) => (
+                                            <option key={project.id} value={project.id}>{project.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="mt-3">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">List</label>
+                                    <select
+                                        value={formData.listId}
+                                        onChange={(e) => setFormData({ ...formData, listId: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    >
+                                        <option value="">No List</option>
+                                        {lists
+                                            .filter((list: any) => !formData.projectId || list.projectId === formData.projectId)
+                                            .map((list: any) => (
+                                                <option key={list.id} value={list.id}>{list.name}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                            </>
                         )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">

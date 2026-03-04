@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useMutation, useApolloClient } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
 import {
     PlusIcon,
     FunnelIcon,
@@ -12,6 +12,7 @@ import {
     PencilIcon,
     TrashIcon,
     Squares2X2Icon,
+    XMarkIcon,
 } from '@heroicons/react/24/outline';
 import {
     ChevronDownIcon,
@@ -26,37 +27,18 @@ import {
     CREATE_TASK,
     UPDATE_TASK,
     DELETE_TASK,
+    GET_TASK_LISTS,
+    CREATE_TASK_LIST,
+    UPDATE_TASK_LIST,
+    DELETE_TASK_LIST,
 } from '@/lib/graphql/queries';
-import {
-    DndContext,
-    DragOverlay,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    DragStartEvent,
-    DragEndEvent,
-} from '@dnd-kit/core';
-import {
-    useDraggable,
-} from '@dnd-kit/core';
-import {
-    useDroppable,
-} from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 
 const priorityColors: { [key: string]: string } = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
     HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     MEDIUM: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     LOW: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-};
-
-const columnColors: { [key: string]: string } = {
-    TODO: 'bg-gray-50 border-gray-200',
-    IN_PROGRESS: 'bg-blue-50 border-blue-200',
-    REVIEW: 'bg-purple-50 border-purple-200',
-    COMPLETED: 'bg-green-50 border-green-200',
 };
 
 const statusLabels: { [key: string]: string } = {
@@ -340,11 +322,6 @@ const ParentTaskWithSubtasks = ({
     const hasSubtasks = task.subTasks && task.subTasks.length > 0;
     const subtasks = task.subTasks || [];
     
-    // Debug: Log subtask info
-    if (hasSubtasks) {
-        console.log(`Parent task "${task.title}" has ${subtasks.length} subtasks, expanded: ${expanded}`, subtasks);
-    }
-
     return (
         <div>
             <DraggableTaskCard
@@ -390,12 +367,10 @@ const ParentTaskWithSubtasks = ({
     );
 };
 
-// Droppable Kanban Column
-const DroppableKanbanColumn = ({
-    title,
+// Droppable List Column (ClickUp-style list within a project)
+const DroppableListColumn = ({
+    list,
     tasks,
-    status,
-    count,
     onEditTask,
     onDeleteTask,
     onStatusChange,
@@ -403,12 +378,13 @@ const DroppableKanbanColumn = ({
     onNavigateToDetails,
     users,
     expandedTasks,
-    onToggleExpand
+    onToggleExpand,
+    onAddTaskToList,
+    onEditList,
+    onDeleteList,
 }: {
-    title: string;
+    list: any;
     tasks: any[];
-    status: string;
-    count: number;
     onEditTask: (task: any) => void;
     onDeleteTask: (task: any) => void;
     onStatusChange: (taskId: string, newStatus: string) => void;
@@ -417,22 +393,51 @@ const DroppableKanbanColumn = ({
     users: any[];
     expandedTasks: Set<string>;
     onToggleExpand: (taskId: string) => void;
+    onAddTaskToList: (listId: string) => void;
+    onEditList: (list: any) => void;
+    onDeleteList: (list: any) => void;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
-        id: status,
+        id: list.id,
     });
 
     return (
-        <div className="flex-1 min-w-0">
-            <div className={`flex items-center justify-between px-3 py-2 rounded-t-lg border ${columnColors[status as keyof typeof columnColors]} ${isOver ? 'ring-2 ring-blue-400' : ''}`}>
-                <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-                <span className="text-sm text-gray-600 bg-white px-2 py-1 rounded-full">
-                    {count}
-                </span>
+        <div className="w-full">
+            <div className={`flex items-center justify-between px-3 py-2 rounded-t-lg border bg-gray-50 border-gray-200 ${isOver ? 'ring-2 ring-primary-400' : ''}`}>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-gray-900 line-clamp-1">{list.name}</h3>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">
+                        {tasks.length} tasks
+                    </span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button
+                        type="button"
+                        onClick={() => onAddTaskToList(list.id)}
+                        className="inline-flex items-center rounded-md bg-primary-600 text-white px-2 py-1 text-xs hover:bg-primary-700"
+                    >
+                        <PlusIcon className="h-3 w-3 mr-1" />
+                        Task
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onEditList(list)}
+                        className="text-gray-400 hover:text-gray-600"
+                    >
+                        <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onDeleteList(list)}
+                        className="text-gray-400 hover:text-red-600"
+                    >
+                        <TrashIcon className="h-4 w-4" />
+                    </button>
+                </div>
             </div>
             <div
                 ref={setNodeRef}
-                className={`bg-gray-50 rounded-b-lg space-y-3 border border-t-0 border-gray-200 p-3 min-h-[400px] ${isOver ? 'bg-blue-50' : ''}`}
+                className={`bg-white rounded-b-lg space-y-3 border border-t-0 border-gray-200 p-3 min-h-[260px] ${isOver ? 'bg-primary-50' : ''}`}
             >
                 {tasks.map((task) => (
                     <ParentTaskWithSubtasks
@@ -450,7 +455,7 @@ const DroppableKanbanColumn = ({
                 ))}
                 {tasks.length === 0 && (
                     <div className="text-center py-8 text-gray-400">
-                        <div className="text-sm">No tasks in {title.toLowerCase()}</div>
+                        <div className="text-sm">No tasks in this list</div>
                     </div>
                 )}
             </div>
@@ -489,16 +494,21 @@ const TaskCard = ({ task }: { task: any }) => {
 };
 
 import TaskModal from '@/components/TaskModal';
+import TaskDetailsModal from '@/components/TaskDetailsModal';
 
 export default function TasksPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showFilters, setShowFilters] = useState(false);
+    const [showListModal, setShowListModal] = useState(false);
+    const [editingList, setEditingList] = useState<any | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [editingTask, setEditingTask] = useState<any | null>(null);
     const [parentTaskForModal, setParentTaskForModal] = useState<{ id: string; projectId: string; title: string } | null>(null);
+    const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [filters, setFilters] = useState({
-        projectId: '',
         assignedToId: '',
         priority: '',
     });
@@ -506,7 +516,7 @@ export default function TasksPage() {
     // Prepare filters for GraphQL query - only include non-empty values
     const prepareFilters = () => {
         const activeFilters: any = {};
-        if (filters.projectId) activeFilters.projectId = filters.projectId;
+        if (selectedProjectId) activeFilters.projectId = selectedProjectId;
         if (filters.assignedToId) activeFilters.assignedToId = filters.assignedToId;
         if (filters.priority) activeFilters.priority = filters.priority;
         return Object.keys(activeFilters).length > 0 ? activeFilters : undefined;
@@ -514,22 +524,15 @@ export default function TasksPage() {
 
     const { data: tasksData, loading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery(GET_TASKS, {
         variables: { filters: prepareFilters() },
-    });
-
-    // Refetch tasks when filters change
-    useEffect(() => {
-        refetchTasks();
-    }, [filters, refetchTasks]);
-
-    // Debug: Log query state
-    console.log('Tasks query state:', {
-        loading: tasksLoading,
-        error: tasksError,
-        data: tasksData,
-        filters: filters,
+        skip: !selectedProjectId,
     });
 
     const { data: projectsData } = useQuery(GET_PROJECTS);
+
+    const { data: listsData, refetch: refetchLists } = useQuery(GET_TASK_LISTS, {
+        variables: { projectId: selectedProjectId },
+        skip: !selectedProjectId,
+    });
     const { data: usersData } = useQuery(GET_USERS);
     const { data: userData } = useQuery(GET_ME);
 
@@ -540,27 +543,14 @@ export default function TasksPage() {
     const tasks = tasksData?.tasks || [];
     const projects = projectsData?.projects || [];
     const users = usersData?.users || [];
+    const taskLists = listsData?.taskLists || [];
 
-    // Debug: Log current tasks and their subtasks
-    console.log('Current tasks loaded:', tasks);
-    tasks.forEach((t: any) => {
-        if (t.subTasks && t.subTasks.length > 0) {
-            console.log(`Task "${t.title}" (${t.id}) has ${t.subTasks.length} subtasks:`, t.subTasks.map((st: any) => `${st.title} (${st.id}, parentTaskId: ${st.parentTaskId})`));
+    // Initialize selected project to first project when available
+    useEffect(() => {
+        if (!selectedProjectId && projects.length > 0) {
+            setSelectedProjectId(projects[0].id);
         }
-    });
-    console.log('Tasks by status:', {
-        TODO: tasks.filter((t: any) => t.status === 'TODO').length,
-        IN_PROGRESS: tasks.filter((t: any) => t.status === 'IN_PROGRESS').length,
-        REVIEW: tasks.filter((t: any) => t.status === 'REVIEW').length,
-        COMPLETED: tasks.filter((t: any) => t.status === 'COMPLETED').length,
-    });
-
-    const columns = [
-        { key: 'TODO', title: 'To Do' },
-        { key: 'IN_PROGRESS', title: 'In Progress' },
-        { key: 'REVIEW', title: 'Review' },
-        { key: 'COMPLETED', title: 'Completed' },
-    ];
+    }, [projects, selectedProjectId]);
 
     const allTasksFlattened = useMemo(() => flattenTasks(tasks), [tasks]);
 
@@ -588,16 +578,19 @@ export default function TasksPage() {
         return expanded;
     });
 
-    // Update expanded set when tasks change (new tasks with subtasks should be expanded)
+    // Update expanded set when tasks change (ensure new tasks with subtasks are expanded)
     useEffect(() => {
         setExpandedTasks(prev => {
+            let changed = false;
             const next = new Set(prev);
             tasks.forEach((t: any) => {
                 if (t.subTasks && t.subTasks.length > 0 && !next.has(t.id)) {
                     next.add(t.id);
+                    changed = true;
                 }
             });
-            return next;
+            // Avoid infinite update loop: only return a new Set when something actually changed
+            return changed ? next : prev;
         });
     }, [tasks]);
 
@@ -613,10 +606,16 @@ export default function TasksPage() {
         });
     };
 
-    // Get parent tasks by status (for display - subtasks shown nested under parent)
-    const getTasksByStatus = (status: string) => {
-        return tasks.filter((t: any) => t.status === status);
-    };
+    // Group tasks by listId for list view
+    const tasksByListId = useMemo(() => {
+        const map = new Map<string | 'unassigned', any[]>();
+        (tasks || []).forEach((t: any) => {
+            const key = (t.listId as string) || 'unassigned';
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(t);
+        });
+        return map;
+    }, [tasks]);
 
     const handleCreateTask = () => {
         if (projects.length === 0) {
@@ -634,6 +633,16 @@ export default function TasksPage() {
         setShowModal(true);
     };
 
+    const handleAddTaskToList = (listId: string) => {
+        if (projects.length === 0 || !selectedProjectId) return;
+        setParentTaskForModal(null);
+        setEditingTask({
+            projectId: selectedProjectId,
+            listId,
+        });
+        setShowModal(true);
+    };
+
     const handleAddSubtask = (parent: any) => {
         if (projects.length === 0) return;
         setParentTaskForModal({ id: parent.id, projectId: parent.projectId, title: parent.title });
@@ -643,22 +652,15 @@ export default function TasksPage() {
 
     const handleSaveTask = async (data: any) => {
         try {
-            console.log('Current user:', userData?.me);
-            console.log('Sending data:', data);
-            console.log('Parent task for modal:', parentTaskForModal);
-
-            if (editingTask) {
+            if (editingTask && editingTask.id) {
                 // For updates, exclude projectId as it's not allowed in UpdateTaskInput
                 const { projectId, ...updateData } = data;
-                console.log('Update data (without projectId):', updateData);
-
                 const result = await updateTask({
                     variables: {
                         id: editingTask.id,
                         input: updateData,
                     },
                 });
-                console.log('Update result:', result);
             } else {
                 // If creating a subtask, add parentTaskId and ensure projectId is set
                 const createData = { ...data };
@@ -668,31 +670,16 @@ export default function TasksPage() {
                     if (!createData.projectId && parentTaskForModal.projectId) {
                         createData.projectId = parentTaskForModal.projectId;
                     }
-                    console.log('Creating subtask with parentTaskId:', createData.parentTaskId);
                 }
-                console.log('Create data:', createData);
-
                 const result = await createTask({
                     variables: {
                         input: createData,
                     },
                 });
-                console.log('Create result:', result);
             }
             setShowModal(false);
             setParentTaskForModal(null);
             const refetchResult = await refetchTasks();
-            console.log('Refetch result:', refetchResult);
-            console.log('All tasks after refetch:', refetchResult?.data?.tasks);
-            
-            // Debug: Log parent tasks and their subtasks
-            if (refetchResult?.data?.tasks) {
-                refetchResult.data.tasks.forEach((t: any) => {
-                    if (t.subTasks && t.subTasks.length > 0) {
-                        console.log(`Parent task "${t.title}" has ${t.subTasks.length} subtasks:`, t.subTasks.map((st: any) => st.title));
-                    }
-                });
-            }
         } catch (error: any) {
             console.error('Error saving task:', error);
             console.error('GraphQL errors:', error.graphQLErrors);
@@ -755,79 +742,78 @@ export default function TasksPage() {
 
     const clearFilters = () => {
         setFilters({
-            projectId: '',
             assignedToId: '',
             priority: '',
         });
     };
 
-    // Drag and drop handlers
-    const [activeTask, setActiveTask] = useState<any | null>(null);
+    const [createTaskList] = useMutation(CREATE_TASK_LIST);
+    const [updateTaskList] = useMutation(UPDATE_TASK_LIST);
+    const [deleteTaskListMutation] = useMutation(DELETE_TASK_LIST);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor),
-        useSensor(KeyboardSensor)
-    );
-
-    const handleDragStart = (event: DragStartEvent) => {
-        const { active } = event;
-        const task = allTasksFlattened.find((t: any) => t.id === active.id);
-        setActiveTask(task);
+    const handleCreateList = () => {
+        if (!selectedProjectId) {
+            alert('Select a project first');
+            return;
+        }
+        setEditingList(null);
+        setShowListModal(true);
     };
 
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
+    const handleEditList = (list: any) => {
+        setEditingList(list);
+        setShowListModal(true);
+    };
 
-        if (!over) {
-            setActiveTask(null);
+    const handleDeleteList = async (list: any) => {
+        if (!window.confirm('Delete this list? Tasks will remain but without a list.')) return;
+        try {
+            await deleteTaskListMutation({
+                variables: { id: list.id },
+            });
+            await Promise.all([refetchLists(), refetchTasks()]);
+        } catch (error) {
+            console.error('Error deleting list', error);
+        }
+    };
+
+    const handleSaveList = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const name = (formData.get('name') as string)?.trim();
+        const description = (formData.get('description') as string | null)?.trim() || undefined;
+        if (!name) {
+            alert('List name is required');
             return;
         }
-
-        const activeTask = allTasksFlattened.find((t: any) => t.id === active.id);
-
-        if (!activeTask) {
-            setActiveTask(null);
-            return;
-        }
-
-        // Find which column the task was dropped on
-        const columnElement = over.id as string;
-        const newStatus = columns.find(col => col.key === columnElement)?.key;
-
-        if (newStatus && newStatus !== activeTask.status) {
-            try {
-                // Clear active task BEFORE updating to prevent animation conflicts
-                setActiveTask(null);
-
-                await updateTask({
+        try {
+            if (editingList) {
+                await updateTaskList({
                     variables: {
-                        id: activeTask.id,
-                        input: { status: newStatus },
+                        id: editingList.id,
+                        input: { name, description },
                     },
                 });
-
-                // Refetch after a short delay to ensure the UI updates smoothly
-                setTimeout(() => {
-                    refetchTasks();
-                }, 50);
-            } catch (error) {
-                console.error('Error updating task status via drag and drop:', error);
-                setActiveTask(null);
-                refetchTasks();
+            } else {
+                await createTaskList({
+                    variables: {
+                        input: {
+                            projectId: selectedProjectId,
+                            name,
+                            description,
+                        },
+                    },
+                });
             }
-        } else {
-            // Clear active task if no status change needed
-            setActiveTask(null);
+            setShowListModal(false);
+            setEditingList(null);
+            await refetchLists();
+        } catch (error) {
+            console.error('Error saving list', error);
         }
     };
 
-    if (tasksLoading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading tasks...</div>
-            </div>
-        );
-    }
+    // No drag-and-drop handlers in list view layout
 
     // Check if user is authenticated
     if (!userData?.me) {
@@ -844,21 +830,27 @@ export default function TasksPage() {
             <div className="mb-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">Tasks Workspace</h1>
                         <p className="text-sm text-gray-600 mt-1">
-                            Manage and track your team's tasks
+                            Organize tasks by project folders, lists, and drag tasks between lists like ClickUp.
                         </p>
                     </div>
                     <div className="flex items-center space-x-3">
+                        <div className="hidden sm:flex items-center space-x-2">
+                            <span className="text-xs uppercase tracking-wide text-gray-400">Workspace</span>
+                            <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
+                                Main workspace
+                            </span>
+                        </div>
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                             <FunnelIcon className="h-4 w-4 mr-2" />
                             Filters
-                            {(filters.projectId || filters.assignedToId || filters.priority) && (
+                            {(filters.assignedToId || filters.priority) && (
                                 <span className="ml-2 px-2 py-0.5 text-xs bg-primary-600 text-white rounded-full">
-                                    {[filters.projectId, filters.assignedToId, filters.priority].filter(Boolean).length}
+                                    {[filters.assignedToId, filters.priority].filter(Boolean).length}
                                 </span>
                             )}
                         </button>
@@ -870,30 +862,41 @@ export default function TasksPage() {
                             <PlusIcon className="h-4 w-4 mr-2" />
                             Add Task
                         </button>
+                        <button
+                            onClick={handleCreateList}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                            <PlusIcon className="h-4 w-4 mr-2" />
+                            Add List
+                        </button>
+                    </div>
+                </div>
+
+                {/* Project (folder) selector */}
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div>
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Folder (Project)
+                        </span>
+                        <select
+                            value={selectedProjectId}
+                            onChange={(e) => setSelectedProjectId(e.target.value)}
+                            className="mt-1 w-64 max-w-full rounded-md border-gray-300 text-sm"
+                        >
+                            {projects.length === 0 && <option value="">No projects</option>}
+                            {projects.map((project: any) => (
+                                <option key={project.id} value={project.id}>
+                                    {project.name}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
                 {/* Filters */}
                 {showFilters && (
                     <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Project
-                                </label>
-                                <select
-                                    value={filters.projectId}
-                                    onChange={(e) => handleFilterChange('projectId', e.target.value)}
-                                    className="w-full rounded-md border-gray-300 text-sm"
-                                >
-                                    <option value="">All Projects</option>
-                                    {projects.map((project: any) => (
-                                        <option key={project.id} value={project.id}>
-                                            {project.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Assignee
@@ -940,8 +943,19 @@ export default function TasksPage() {
                 )}
             </div>
 
-            {/* Kanban Board */}
-            {tasks.length === 0 && (filters.projectId || filters.assignedToId || filters.priority) ? (
+            {/* Lists and tasks board */}
+            {!selectedProjectId ? (
+                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">Select a project</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Choose a project folder to view its lists and tasks.
+                    </p>
+                </div>
+            ) : tasksLoading ? (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-gray-500">Loading tasks...</div>
+                </div>
+            ) : tasks.length === 0 && (filters.assignedToId || filters.priority) ? (
                 <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                     <FunnelIcon className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No tasks match your filters</h3>
@@ -956,44 +970,183 @@ export default function TasksPage() {
                     </button>
                 </div>
             ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                >
-                    <div className="flex space-x-4 overflow-x-auto pb-4">
-                        {columns.map((column) => {
-                            const parentTasks = getTasksByStatus(column.key);
-                            // Count includes subtasks for the badge
-                            const totalCount = allTasksFlattened.filter((t: any) => t.status === column.key).length;
-                            return (
-                                <DroppableKanbanColumn
-                                    key={column.key}
-                                    title={column.title}
-                                    tasks={parentTasks}
-                                    status={column.key}
-                                    count={totalCount}
-                                    onEditTask={handleEditTask}
-                                    onDeleteTask={handleDeleteTask}
-                                    onStatusChange={handleStatusChange}
-                                    onAddSubtask={handleAddSubtask}
-                                    onNavigateToDetails={(id) => router.push(`/dashboard/tasks/${id}`)}
-                                    users={users}
-                                    expandedTasks={expandedTasks}
-                                    onToggleExpand={toggleExpand}
-                                />
-                            );
-                        })}
-                    </div>
-                    <DragOverlay dropAnimation={null}>
-                        {activeTask ? (
-                            <div className="bg-white rounded-lg shadow-2xl border-2 border-blue-400 p-4 transform rotate-1 cursor-grabbing">
-                                <TaskCard task={activeTask} />
+                <div className="space-y-6 pb-4">
+                    {!selectedListId ? (
+                        // Show only Lists table
+                        <div className="card overflow-hidden">
+                            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                                <h3 className="text-sm font-semibold text-gray-900">Lists</h3>
                             </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Name
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Progress
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Tasks
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Owner
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {taskLists.map((list: any) => {
+                                            const listTasks = tasksByListId.get(list.id) || [];
+                                            const completed = listTasks.filter((t: any) => t.status === 'COMPLETED').length;
+                                            const total = listTasks.length;
+                                            return (
+                                                <tr
+                                                    key={list.id}
+                                                    className="cursor-pointer hover:bg-gray-50"
+                                                    onClick={() => setSelectedListId(list.id)}
+                                                >
+                                                    <td className="px-4 py-2 text-sm text-gray-900">
+                                                        {list.name}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-600">
+                                                        {completed}/{total || 0}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-600">
+                                                        {total}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-400">
+                                                        —{/* placeholder owner */}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {taskLists.length === 0 && (
+                                            <tr>
+                                                <td
+                                                    className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                    colSpan={4}
+                                                >
+                                                    No lists yet. Create a list to start organizing tasks.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        // Show breadcrumb + tasks table for selected list
+                        <>
+                            <div className="flex items-center justify-between">
+                                <nav className="text-xs text-gray-500">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedListId(null)}
+                                        className="hover:underline"
+                                    >
+                                        Lists
+                                    </button>
+                                    <span className="mx-1">/</span>
+                                    <span className="font-medium text-gray-700">
+                                        {taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected list'}
+                                    </span>
+                                </nav>
+                            </div>
+
+                            <div className="card overflow-hidden">
+                                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-gray-900">
+                                            Tasks in list
+                                        </h3>
+                                        <p className="text-xs text-gray-500">
+                                            Click a task name to see full details.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handleAddTaskToList(selectedListId)}
+                                        className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
+                                    >
+                                        <PlusIcon className="h-4 w-4 mr-1" />
+                                        Add Task
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Status
+                                                </th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Name
+                                                </th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Assignee
+                                                </th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Due date
+                                                </th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Priority
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {tasks
+                                                .filter((t: any) => (t.listId || 'unassigned') === selectedListId)
+                                                .map((task: any) => (
+                                                    <tr
+                                                        key={task.id}
+                                                        className="hover:bg-gray-50 cursor-pointer"
+                                                        onClick={() => setDetailTaskId(task.id)}
+                                                    >
+                                                        <td className="px-4 py-2 text-xs">
+                                                            <span
+                                                                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                                                    statusBadgeColors[task.status] ||
+                                                                    statusBadgeColors.TODO
+                                                                }`}
+                                                            >
+                                                                {statusLabels[task.status] || task.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm text-gray-900">
+                                                            {task.title}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                                            {users.find((u: any) => u.id === task.assignedToId)?.name ||
+                                                                'Unassigned'}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                                            {task.dueDate
+                                                                ? new Date(task.dueDate).toLocaleDateString()
+                                                                : '—'}
+                                                        </td>
+                                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                                            {task.priority}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            {tasks.filter((t: any) => (t.listId || 'unassigned') === selectedListId)
+                                                .length === 0 && (
+                                                <tr>
+                                                    <td
+                                                        className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                        colSpan={5}
+                                                    >
+                                                        No tasks in this list yet.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
             )}
 
             {/* Stats Bar */}
@@ -1036,7 +1189,7 @@ export default function TasksPage() {
                         <div className="ml-3">
                             <p className="text-sm font-medium text-gray-900">In Progress</p>
                             <p className="text-xs text-gray-500">
-                                {getTasksByStatus('IN_PROGRESS').length} tasks
+                                {allTasksFlattened.filter((t: any) => t.status === 'IN_PROGRESS').length} tasks
                             </p>
                         </div>
                     </div>
@@ -1051,7 +1204,7 @@ export default function TasksPage() {
                         <div className="ml-3">
                             <p className="text-sm font-medium text-gray-900">Completed</p>
                             <p className="text-xs text-gray-500">
-                                {getTasksByStatus('COMPLETED').length} tasks
+                                {allTasksFlattened.filter((t: any) => t.status === 'COMPLETED').length} tasks
                             </p>
                         </div>
                     </div>
@@ -1067,7 +1220,74 @@ export default function TasksPage() {
                 onSave={handleSaveTask}
                 projects={projects}
                 users={users}
+                lists={taskLists}
             />
+
+            {/* Task Details Modal */}
+            <TaskDetailsModal
+                taskId={detailTaskId}
+                isOpen={!!detailTaskId}
+                onClose={() => setDetailTaskId(null)}
+            />
+
+            {/* List Modal */}
+            {showListModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {editingList ? 'Edit List' : 'Create List'}
+                            </h2>
+                            <button
+                                onClick={() => { setShowListModal(false); setEditingList(null); }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <XMarkIcon className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSaveList} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Name *
+                                </label>
+                                <input
+                                    name="name"
+                                    type="text"
+                                    defaultValue={editingList?.name || ''}
+                                    required
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Description
+                                </label>
+                                <textarea
+                                    name="description"
+                                    defaultValue={editingList?.description || ''}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowListModal(false); setEditingList(null); }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
+                                >
+                                    {editingList ? 'Update List' : 'Create List'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
