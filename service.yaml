@@ -1,0 +1,13 @@
+type: app
+name: frontend
+
+build:
+  context: ../../remote-team-web
+  dockerfile: Dockerfile
+
+port: 3000
+
+env:
+  NEXT_PUBLIC_API_URL: https://test-backend.vvowhz.easypanel.host/api/graphql
+  NEXT_PUBLIC_WS_URL: wss://test-backend.vvowhz.easypanel.host
+

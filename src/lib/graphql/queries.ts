@@ -1,0 +1,561 @@
+import { gql } from '@apollo/client';
+
+export const LOGIN_MUTATION = gql`
+  mutation Login($email: String!, $password: String!) {
+    login(input: { email: $email, password: $password }) {
+      accessToken
+      refreshToken
+      user {
+        id
+        name
+        email
+        role
+        department
+      }
+    }
+  }
+`;
+
+export const REGISTER_MUTATION = gql`
+  mutation Register($input: RegisterInput!) {
+    register(input: $input) {
+      accessToken
+      refreshToken
+      user {
+        id
+        name
+        email
+        role
+        department
+        phone
+        skills
+        salaryType
+        salaryAmount
+        status
+      }
+    }
+  }
+`;
+
+export const GET_ME = gql`
+  query GetMe {
+    me {
+      id
+      name
+      email
+      role
+      phone
+      department
+      skills
+      salaryType
+      salaryAmount
+      status
+      lastActive
+    }
+  }
+`;
+
+export const GET_USERS = gql`
+  query GetUsers($filters: UserFiltersInput) {
+    users(filters: $filters) {
+      id
+      name
+      email
+      role
+      department
+      status
+      lastActive
+    }
+  }
+`;
+
+export const GET_PROJECTS = gql`
+  query GetProjects($filters: ProjectFiltersInput) {
+    projects(filters: $filters) {
+      id
+      name
+      description
+      budget
+      hourlyRate
+      status
+      startDate
+      endDate
+      clientName
+      createdBy {
+        id
+        name
+      }
+      createdAt
+    }
+  }
+`;
+
+export const CREATE_PROJECT = gql`
+  mutation CreateProject($input: CreateProjectInput!) {
+    createProject(input: $input) {
+      id
+      name
+      budget
+      hourlyRate
+      status
+    }
+  }
+`;
+
+export const GET_TASKS = gql`
+  query GetTasks($filters: TaskFiltersInput) {
+    tasks(filters: $filters) {
+      id
+      title
+      description
+      status
+      priority
+      projectId
+      assignedToId
+      startDate
+      dueDate
+      timeSpent
+      estimatedTime
+      parentTaskId
+      createdAt
+      updatedAt
+      project {
+        id
+        name
+      }
+      subTasks {
+        id
+        title
+        description
+        status
+        priority
+        projectId
+        assignedToId
+        dueDate
+        estimatedTime
+        timeSpent
+        parentTaskId
+        createdAt
+        updatedAt
+        project {
+          id
+          name
+        }
+        subTasks {
+          id
+          title
+          status
+          priority
+          projectId
+          assignedToId
+          parentTaskId
+        }
+      }
+    }
+  }
+`;
+
+export const GET_TASKS_FOR_SELECTION = gql`
+  query GetTasksForSelection($filters: TaskFiltersInput) {
+    tasksForSelection(filters: $filters) {
+      id
+      title
+      projectId
+      parentTaskId
+      parentTask {
+        id
+        title
+      }
+      project {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const GET_TASK = gql`
+  query GetTask($id: String!) {
+    task(id: $id) {
+      id
+      title
+      description
+      status
+      priority
+      projectId
+      assignedToId
+      startDate
+      dueDate
+      timeSpent
+      estimatedTime
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const GET_TASK_DETAILS = gql`
+  query GetTaskDetails($id: String!) {
+    task(id: $id) {
+      id
+      title
+      description
+      status
+      priority
+      projectId
+      assignedToId
+      startDate
+      dueDate
+      timeSpent
+      estimatedTime
+      parentTaskId
+      createdAt
+      updatedAt
+      project {
+        id
+        name
+      }
+      parentTask {
+        id
+        title
+      }
+      assignedTo {
+        id
+        name
+        email
+      }
+      subTasks {
+        id
+        title
+        description
+        status
+        priority
+        dueDate
+        timeSpent
+        estimatedTime
+        assignedTo {
+          id
+          name
+          email
+        }
+      }
+      comments {
+        id
+        content
+        createdAt
+        user {
+          id
+          name
+          email
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_TASK = gql`
+  mutation CreateTask($input: CreateTaskInput!) {
+    createTask(input: $input) {
+      id
+      title
+      description
+      status
+      priority
+      projectId
+      assignedToId
+      startDate
+      dueDate
+      timeSpent
+      estimatedTime
+      parentTaskId
+      createdAt
+      updatedAt
+      project {
+        id
+        name
+      }
+      subTasks {
+        id
+        title
+        status
+        priority
+        projectId
+        parentTaskId
+      }
+    }
+  }
+`;
+
+export const UPDATE_TASK = gql`
+  mutation UpdateTask($id: String!, $input: UpdateTaskInput!) {
+    updateTask(id: $id, input: $input) {
+      id
+      title
+      description
+      status
+      priority
+      projectId
+      assignedToId
+      startDate
+      dueDate
+      timeSpent
+      estimatedTime
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_TASK = gql`
+  mutation DeleteTask($id: String!) {
+    deleteTask(id: $id)
+  }
+`;
+
+export const ADD_COMMENT = gql`
+  mutation AddComment($taskId: String!, $content: String!) {
+    addComment(taskId: $taskId, content: $content) {
+      id
+      content
+      createdAt
+      user {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const CHECK_IN = gql`
+  mutation CheckIn {
+    checkIn {
+      id
+      checkIn
+      date
+    }
+  }
+`;
+
+export const CHECK_OUT = gql`
+  mutation CheckOut {
+    checkOut {
+      id
+      checkOut
+      totalHours
+    }
+  }
+`;
+
+export const START_TIME_ENTRY = gql`
+  mutation StartTimeEntry($input: StartTimeEntryInput!) {
+    startTimeEntry(input: $input) {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+    }
+  }
+`;
+
+export const STOP_TIME_ENTRY = gql`
+  mutation StopTimeEntry($effectiveDurationSeconds: Int) {
+    stopTimeEntry(effectiveDurationSeconds: $effectiveDurationSeconds) {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+    }
+  }
+`;
+
+export const GET_ACTIVE_TIME_ENTRY = gql`
+  query GetActiveTimeEntry {
+    activeTimeEntry {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+    }
+  }
+`;
+
+export const GET_TODAY_TIMESHEET = gql`
+  query GetTodayTimesheet {
+    todayTimesheet {
+      id
+      date
+      checkIn
+      checkOut
+      totalHours
+      status
+      notes
+      sessionNumber
+      employeeId
+      createdAt
+      updatedAt
+      employee {
+        id
+        name
+        email
+        workType
+      }
+    }
+  }
+`;
+
+export const GET_TODAY_SESSIONS = gql`
+  query GetTodaySessions {
+    todaySessions {
+      id
+      date
+      checkIn
+      checkOut
+      totalHours
+      status
+      notes
+      sessionNumber
+      employeeId
+      createdAt
+      updatedAt
+      employee {
+        id
+        name
+        email
+        workType
+      }
+    }
+  }
+`;
+
+export const UPDATE_EMPLOYEE_WORK_TYPE = gql`
+  mutation UpdateEmployeeWorkType($workType: String!) {
+    updateEmployeeWorkType(workType: $workType) {
+      id
+      name
+      email
+      workType
+    }
+  }
+`;
+
+export const GET_EMPLOYEE_WORK_TYPE = gql`
+  query GetEmployeeWorkType {
+    employeeWorkType
+  }
+`;
+
+export const GET_TIME_ENTRIES = gql`
+  query GetTimeEntries($employeeId: String, $taskId: String, $taskIds: [String!]) {
+    timeEntries(employeeId: $employeeId, taskId: $taskId, taskIds: $taskIds) {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+    }
+  }
+`;
+
+export const GET_TIMESHEETS = gql`
+  query GetTimesheets($employeeId: String, $startDate: Date, $endDate: Date) {
+    timesheets(employeeId: $employeeId, startDate: $startDate, endDate: $endDate) {
+      id
+      date
+      checkIn
+      checkOut
+      totalHours
+      status
+      notes
+      employeeId
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_USER = gql`
+  mutation UpdateUser($id: String!, $input: UpdateUserInput!) {
+    updateUser(id: $id, input: $input) {
+      id
+      name
+      email
+      role
+      phone
+      department
+      skills
+      salaryType
+      salaryAmount
+      status
+    }
+  }
+`;
+
+export const DELETE_USER = gql`
+  mutation DeleteUser($id: String!) {
+    deleteUser(id: $id)
+  }
+`;
+
+export const REFRESH_TOKEN = gql`
+  mutation RefreshToken($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) {
+      accessToken
+      refreshToken
+    }
+  }
+`;
+
+export const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
+  }
+`;
+
+export const UPDATE_PROJECT = gql`
+  mutation UpdateProject($id: String!, $input: UpdateProjectInput!) {
+    updateProject(id: $id, input: $input) {
+      id
+      name
+      description
+      budget
+      hourlyRate
+      status
+      startDate
+      endDate
+      clientName
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_PROJECT = gql`
+  mutation DeleteProject($id: String!) {
+    deleteProject(id: $id)
+  }
+`;
+
+export const REPORT_ACTIVITY = gql`
+  mutation ReportActivity($type: String!, $metadata: JSON) {
+    reportActivity(type: $type, metadata: $metadata)
+  }
+`;

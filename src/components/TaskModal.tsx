@@ -1,0 +1,211 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+
+export default function TaskModal({
+    task,
+    parentTask,
+    isOpen,
+    onClose,
+    onSave,
+    projects,
+    users
+}: {
+    task: any | null;
+    parentTask: { id: string; projectId: string; title: string } | null;
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: any) => void;
+    projects: any[];
+    users: any[];
+}) {
+    const [formData, setFormData] = useState({
+        title: '',
+        description: '',
+        priority: 'MEDIUM',
+        projectId: '',
+        assignedToId: '',
+        dueDate: '',
+        estimatedTime: '',
+    });
+
+    useEffect(() => {
+        if (task) {
+            setFormData({
+                title: task.title || '',
+                description: task.description || '',
+                priority: task.priority || 'MEDIUM',
+                projectId: task.projectId || (task.project?.id ?? ''),
+                assignedToId: task.assignedToId || '',
+                dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+                estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
+            });
+        } else if (parentTask) {
+            setFormData({
+                title: '',
+                description: '',
+                priority: 'MEDIUM',
+                projectId: parentTask.projectId,
+                assignedToId: '',
+                dueDate: '',
+                estimatedTime: '',
+            });
+        } else {
+            setFormData({
+                title: '',
+                description: '',
+                priority: 'MEDIUM',
+                projectId: '',
+                assignedToId: '',
+                dueDate: '',
+                estimatedTime: '',
+            });
+        }
+    }, [task, parentTask, isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.title.trim()) {
+            alert('Title is required');
+            return;
+        }
+        if (!parentTask && !formData.projectId) {
+            alert('Project is required');
+            return;
+        }
+        const submitData: any = {
+            title: formData.title.trim(),
+            description: formData.description.trim() || undefined,
+            priority: formData.priority,
+            projectId: formData.projectId || parentTask?.projectId,
+            estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
+        };
+        if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
+        if (formData.dueDate) {
+            const dueDate = new Date(formData.dueDate);
+            if (!isNaN(dueDate.getTime())) submitData.dueDate = dueDate;
+        }
+        onSave(submitData);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {task ? 'Edit Task' : parentTask ? 'Add Subtask' : 'Create New Task'}
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <XMarkIcon className="h-5 w-5" />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.title}
+                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
+                            <select
+                                value={formData.priority}
+                                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            >
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="URGENT">Urgent</option>
+                            </select>
+                        </div>
+                        {parentTask ? (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Parent</label>
+                                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-700 dark:text-gray-300">
+                                    {parentTask.title}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project *</label>
+                                <select
+                                    required
+                                    value={formData.projectId}
+                                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                >
+                                    <option value="">Select Project</option>
+                                    {projects.map((project: any) => (
+                                        <option key={project.id} value={project.id}>{project.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
+                            <select
+                                value={formData.assignedToId}
+                                onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            >
+                                <option value="">Unassigned</option>
+                                {users.map((user: any) => (
+                                    <option key={user.id} value={user.id}>{user.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                            <input
+                                type="date"
+                                value={formData.dueDate}
+                                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estimated Time (hours)</label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            placeholder="e.g. 1.5 for 1h 30m"
+                            value={formData.estimatedTime}
+                            onChange={(e) => setFormData({ ...formData, estimatedTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div className="flex justify-end space-x-3 pt-4">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600">
+                            Cancel
+                        </button>
+                        <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">
+                            {task ? 'Update' : parentTask ? 'Add Subtask' : 'Create'} Task
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
