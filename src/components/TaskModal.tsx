@@ -76,9 +76,15 @@ export default function TaskModal({
             alert('Title is required');
             return;
         }
-        if (!parentTask && !formData.projectId) {
-            alert('Project is required');
-            return;
+        if (!parentTask) {
+            if (!formData.projectId) {
+                alert('Project is required');
+                return;
+            }
+            if (!formData.listId) {
+                alert('List is required');
+                return;
+            }
         }
         const submitData: any = {
             title: formData.title.trim(),
@@ -167,13 +173,16 @@ export default function TaskModal({
                                     </select>
                                 </div>
                                 <div className="mt-3">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">List</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        List *
+                                    </label>
                                     <select
+                                        required
                                         value={formData.listId}
                                         onChange={(e) => setFormData({ ...formData, listId: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                     >
-                                        <option value="">No List</option>
+                                        <option value="">Select List</option>
                                         {lists
                                             .filter((list: any) => !formData.projectId || list.projectId === formData.projectId)
                                             .map((list: any) => (

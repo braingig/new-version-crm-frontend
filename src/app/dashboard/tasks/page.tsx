@@ -525,6 +525,8 @@ export default function TasksPage() {
     const { data: tasksData, loading: tasksLoading, error: tasksError, refetch: refetchTasks } = useQuery(GET_TASKS, {
         variables: { filters: prepareFilters() },
         skip: !selectedProjectId,
+        fetchPolicy: 'network-only',
+        nextFetchPolicy: 'cache-first',
     });
 
     const { data: projectsData } = useQuery(GET_PROJECTS);
@@ -715,7 +717,7 @@ export default function TasksPage() {
                 await deleteTask({
                     variables: { id: task.id },
                 });
-                refetchTasks();
+                await refetchTasks();
             } catch (error) {
                 console.error('Error deleting task:', error);
             }
@@ -855,13 +857,8 @@ export default function TasksPage() {
                             )}
                         </button>
 
-                        <button
-                            onClick={handleCreateTask}
-                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
-                        >
-                            <PlusIcon className="h-4 w-4 mr-2" />
-                            Add Task
-                        </button>
+                        {/* Tasks can only be created inside a specific list (per requirements),
+                            so the global "Add Task" button is removed to avoid creating list-less tasks. */}
                         <button
                             onClick={handleCreateList}
                             className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -1097,11 +1094,11 @@ export default function TasksPage() {
                                             {tasks
                                                 .filter((t: any) => (t.listId || 'unassigned') === selectedListId)
                                                 .map((task: any) => (
-                                                    <tr
-                                                        key={task.id}
-                                                        className="hover:bg-gray-50 cursor-pointer"
-                                                        onClick={() => setDetailTaskId(task.id)}
-                                                    >
+                                                <tr
+                                                    key={task.id}
+                                                    className="hover:bg-gray-50 cursor-pointer"
+                                                    onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
+                                                >
                                                         <td className="px-4 py-2 text-xs">
                                                             <span
                                                                 className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${

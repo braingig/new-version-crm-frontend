@@ -11,6 +11,9 @@ import {
     UPDATE_TASK,
     DELETE_TASK,
     ADD_COMMENT,
+    GET_ACTIVE_TIME_ENTRY,
+    START_TIME_ENTRY,
+    STOP_TIME_ENTRY,
 } from '@/lib/graphql/queries';
 import {
     ArrowLeftIcon,
@@ -26,8 +29,16 @@ import {
     Squares2X2Icon,
     PaperAirplaneIcon,
 } from '@heroicons/react/24/outline';
-import { format, differenceInDays, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { useState } from 'react';
+import {
+    format,
+    differenceInDays,
+    startOfDay,
+    startOfWeek,
+    endOfWeek,
+    startOfMonth,
+    endOfMonth,
+} from 'date-fns';
+import { useState, useEffect } from 'react';
 import TaskModal from '@/components/TaskModal';
 
 const priorityColors: Record<string, string> = {
@@ -55,15 +66,18 @@ export default function TaskDetailsPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [timeEntriesFilter, setTimeEntriesFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
     const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+    const [totalsRange, setTotalsRange] = useState<'week' | 'month'>('week');
+    const [totalsMonth, setTotalsMonth] = useState(() => format(new Date(), 'yyyy-MM'));
 
     const { data, loading, error, refetch } = useQuery(GET_TASK_DETAILS, {
         variables: { id: taskId },
         skip: !taskId,
     });
 
-    const { data: timeEntriesData } = useQuery(GET_TIME_ENTRIES, {
+    const { data: timeEntriesData, refetch: refetchTimeEntries } = useQuery(GET_TIME_ENTRIES, {
         variables: { taskId },
         skip: !taskId,
+        fetchPolicy: 'network-only',
     });
 
     const task = data?.task;
@@ -80,6 +94,10 @@ export default function TaskDetailsPage() {
     const projects = projectsData?.projects ?? [];
     const users = usersData?.users ?? [];
 
+    const { data: activeData, refetch: refetchActive } = useQuery(GET_ACTIVE_TIME_ENTRY, {
+        fetchPolicy: 'network-only',
+    });
+
     const [updateTask] = useMutation(UPDATE_TASK, {
         onCompleted: () => refetch(),
     });
@@ -92,6 +110,9 @@ export default function TaskDetailsPage() {
             refetch();
         },
     });
+
+    const [startTimeEntry, { loading: starting }] = useMutation(START_TIME_ENTRY);
+    const [stopTimeEntry, { loading: stopping }] = useMutation(STOP_TIME_ENTRY);
 
     const handleStatusChange = (newStatus: string) => {
         setStatusDropdownOpen(false);
@@ -154,6 +175,39 @@ export default function TaskDetailsPage() {
         (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     );
 
+    const activeEntry = activeData?.activeTimeEntry;
+    const isActiveForThisTask = !!activeEntry && activeEntry.taskId === taskId;
+
+    const [liveTotalSeconds, setLiveTotalSeconds] = useState<number | null>(null);
+
+    // Total duration in SECONDS for this task's own entries
+    const totalSecondsCompleted = timeEntries.reduce(
+        (sum: number, entry: any) => sum + (entry.duration || 0),
+        0
+    );
+
+    const totalSeconds = liveTotalSeconds ?? totalSecondsCompleted;
+
+    // Live updating timer while this task's entry is active
+    useEffect(() => {
+        if (!isActiveForThisTask || !activeEntry) {
+            setLiveTotalSeconds(null);
+            return;
+        }
+
+        const startMs = new Date(activeEntry.startTime).getTime();
+
+        const update = () => {
+            const now = Date.now();
+            const runningSeconds = Math.floor((now - startMs) / 1000);
+            setLiveTotalSeconds(totalSecondsCompleted + runningSeconds);
+        };
+
+        update();
+        const id = window.setInterval(update, 1000);
+        return () => window.clearInterval(id);
+    }, [isActiveForThisTask, activeEntry, totalSecondsCompleted]);
+
     const filteredTimeEntries = allTimeEntries.filter((entry: any) => {
         const start = entry.startTime ? new Date(entry.startTime) : null;
         if (!start) return false;
@@ -177,10 +231,17 @@ export default function TaskDetailsPage() {
         }
         return true;
     });
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setDate(todayEnd.getDate() + 1);
+
+    const todayEntries = allTimeEntries.filter((entry: any) => {
+        const start = entry.startTime ? new Date(entry.startTime) : null;
+        if (!start) return false;
+        return start >= todayStart && start < todayEnd;
+    });
 
     const sumTodayMinutes = (entries: any[]) =>
         entries.reduce((sum: number, entry: any) => {
@@ -197,6 +258,86 @@ export default function TaskDetailsPage() {
     const todayMinutes = useSubtaskTimeSum
         ? sumTodayMinutes(subtaskTimeEntries)
         : sumTodayMinutes(timeEntries);
+
+    // Daily totals (seconds) for current week/month
+    const buildDailyTotals = () => {
+        if (allTimeEntries.length === 0) return [];
+
+        let rangeStart: Date;
+        let rangeEnd: Date;
+
+        if (totalsRange === 'week') {
+            rangeStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+            rangeEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+        } else {
+            const [y, m] = totalsMonth.split('-').map(Number);
+            rangeStart = startOfMonth(new Date(y, m - 1, 1));
+            rangeEnd = endOfMonth(new Date(y, m - 1, 1));
+        }
+
+        const byDay = new Map<
+            string,
+            {
+                date: Date;
+                totalSeconds: number;
+                count: number;
+            }
+        >();
+
+        allTimeEntries.forEach((entry: any) => {
+            const start = entry.startTime ? new Date(entry.startTime) : null;
+            if (!start || start < rangeStart || start > rangeEnd) return;
+
+            const key = format(start, 'yyyy-MM-dd');
+            const durationSeconds =
+                typeof entry.duration === 'number' && entry.duration >= 0
+                    ? entry.duration
+                    : Math.floor(
+                          ((entry.endTime ? new Date(entry.endTime) : new Date()).getTime() - start.getTime()) / 1000
+                      );
+
+            if (!byDay.has(key)) {
+                byDay.set(key, {
+                    date: startOfDay(start),
+                    totalSeconds: 0,
+                    count: 0,
+                });
+            }
+            const bucket = byDay.get(key)!;
+            bucket.totalSeconds += durationSeconds;
+            bucket.count += 1;
+        });
+
+        return Array.from(byDay.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+    };
+
+    const dailyTotals = buildDailyTotals();
+
+    const handleStartTimer = async () => {
+        if (!taskId) return;
+        try {
+            await startTimeEntry({
+                variables: {
+                    input: {
+                        taskId,
+                        description: `Work on task ${task?.title || ''}`.trim(),
+                    },
+                },
+            });
+            await Promise.all([refetchActive(), refetchTimeEntries()]);
+        } catch (e) {
+            console.error('Failed to start timer', e);
+        }
+    };
+
+    const handleStopTimer = async () => {
+        try {
+            await stopTimeEntry();
+            await Promise.all([refetchActive(), refetchTimeEntries()]);
+        } catch (e) {
+            console.error('Failed to stop timer', e);
+        }
+    };
 
     if (!taskId) {
         return (
@@ -420,69 +561,93 @@ export default function TaskDetailsPage() {
                         </div>
                     )}
 
-                    {/* Time Entries */}
+                    {/* Time tracking controls */}
                     <div className="card">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <ClockIcon className="h-5 w-5 text-primary-600" />
+                                    Time tracking
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                                    Total logged: {formatDuration(totalSeconds)}
+                                </p>
+                                {isActiveForThisTask && activeEntry && (
+                                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                        Timer running for this task…
+                                    </p>
+                                )}
+                                {activeEntry && !isActiveForThisTask && (
+                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                        Another task is currently running.
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {isActiveForThisTask ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleStopTimer}
+                                        disabled={stopping}
+                                        className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-60"
+                                    >
+                                        {stopping ? 'Stopping…' : 'Stop'}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={handleStartTimer}
+                                        disabled={starting || (!!activeEntry && !isActiveForThisTask)}
+                                        className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 disabled:opacity-60"
+                                    >
+                                        {starting ? 'Starting…' : 'Start timer'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Today's time entries */}
+                    <div className="card">
+                        <div className="flex items-center justify-between mb-3">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                                 <ClockIcon className="h-5 w-5 text-primary-600" />
-                                Time Entries ({filteredTimeEntries.length}{timeEntriesFilter !== 'all' ? ` of ${allTimeEntries.length}` : ''})
+                                Today&apos;s time entries ({todayEntries.length})
                             </h2>
-                            {allTimeEntries.length > 0 && (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
-                                        {(['all', 'today', 'week', 'month'] as const).map((f) => (
-                                            <button
-                                                key={f}
-                                                type="button"
-                                                onClick={() => setTimeEntriesFilter(f)}
-                                                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                                                    timeEntriesFilter === f
-                                                        ? 'bg-primary-600 text-white'
-                                                        : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                {f.charAt(0).toUpperCase() + f.slice(1)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    {timeEntriesFilter === 'month' && (
-                                        <input
-                                            type="month"
-                                            value={selectedMonth}
-                                            onChange={(e) => setSelectedMonth(e.target.value)}
-                                            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
-                                        />
-                                    )}
-                                </div>
-                            )}
                         </div>
-                        {allTimeEntries.length > 0 ? (
-                            filteredTimeEntries.length > 0 ? (
+                        {todayEntries.length > 0 ? (
                             <div className="overflow-x-auto -mx-4 sm:mx-0 overflow-y-auto max-h-[320px] border border-gray-200 dark:border-gray-600 rounded-lg">
                                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
                                     <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800/95 z-10">
                                         <tr>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
                                             {hasSubtasks && (
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Task</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                    Task
+                                                </th>
                                             )}
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Start</th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">End</th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Duration</th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Start
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                End
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Duration
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Status
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
-                                        {filteredTimeEntries.map((entry: any) => (
+                                        {todayEntries.map((entry: any) => (
                                             <tr key={entry.id}>
-                                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                                                    {entry.startTime ? format(new Date(entry.startTime), 'MMM d, yyyy') : '-'}
-                                                </td>
                                                 {hasSubtasks && (
                                                     <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
                                                         {entry.taskId === taskId
                                                             ? task.title
-                                                            : task.subTasks?.find((st: any) => st.id === entry.taskId)?.title ?? '-'}
+                                                            : task.subTasks?.find((st: any) => st.id === entry.taskId)?.title ??
+                                                              '-'}
                                                     </td>
                                                 )}
                                                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
@@ -495,11 +660,13 @@ export default function TaskDetailsPage() {
                                                     {getEntryDuration(entry)}
                                                 </td>
                                                 <td className="px-4 py-2">
-                                                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                                                        entry.endTime
-                                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400'
-                                                    }`}>
+                                                    <span
+                                                        className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                                                            entry.endTime
+                                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/20 dark:text-amber-400'
+                                                        }`}
+                                                    >
                                                         {entry.endTime ? 'Completed' : 'Active'}
                                                     </span>
                                                 </td>
@@ -508,14 +675,92 @@ export default function TaskDetailsPage() {
                                     </tbody>
                                 </table>
                             </div>
-                            ) : (
-                                <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
-                                    No time entries for this period. Try a different filter.
-                                </p>
-                            )
                         ) : (
                             <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
-                                No time entries yet. Log time from the Time Tracker.
+                                No time entries have been logged for today yet.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Daily totals (week / month) */}
+                    <div className="card">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <ClockIcon className="h-5 w-5 text-primary-600" />
+                                Daily totals
+                            </h2>
+                            {allTimeEntries.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                                        {(['week', 'month'] as const).map((range) => (
+                                            <button
+                                                key={range}
+                                                type="button"
+                                                onClick={() => setTotalsRange(range)}
+                                                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                                                    totalsRange === range
+                                                        ? 'bg-primary-600 text-white'
+                                                        : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                            >
+                                                {range === 'week' ? 'This week' : 'This month'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {totalsRange === 'month' && (
+                                        <input
+                                            type="month"
+                                            value={totalsMonth}
+                                            onChange={(e) => setTotalsMonth(e.target.value)}
+                                            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {dailyTotals.length > 0 ? (
+                            <div className="overflow-x-auto -mx-4 sm:mx-0 border border-gray-200 dark:border-gray-600 rounded-lg">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                                    <thead className="bg-gray-50 dark:bg-gray-800">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Date
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Day
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Total time
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Entries
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
+                                        {dailyTotals.map((day) => (
+                                            <tr key={day.date.toISOString()}>
+                                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                    {format(day.date, 'MMM d, yyyy')}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                                                    {format(day.date, 'EEE')}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                    {formatDuration(day.totalSeconds)}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                                                    {day.count}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+                                No time has been logged for this {totalsRange === 'week' ? 'week' : 'month'}.
                             </p>
                         )}
                     </div>
