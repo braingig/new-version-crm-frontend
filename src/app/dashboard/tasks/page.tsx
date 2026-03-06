@@ -554,6 +554,18 @@ export default function TasksPage() {
         }
     }, [projects, selectedProjectId]);
 
+    // When project has no lists or selected list is not in current project, clear selection so "Add Task" is never shown
+    // Keep 'unassigned' selected if user is viewing tasks with no list
+    useEffect(() => {
+        if (selectedListId === 'unassigned') return;
+        if (selectedListId && taskLists.length > 0 && !taskLists.some((l: any) => l.id === selectedListId)) {
+            setSelectedListId(null);
+        }
+        if (taskLists.length === 0 && selectedListId) {
+            setSelectedListId(null);
+        }
+    }, [selectedProjectId, taskLists, selectedListId]);
+
     const allTasksFlattened = useMemo(() => flattenTasks(tasks), [tasks]);
 
     // Open edit modal when navigating from task details with ?edit=id
@@ -655,8 +667,8 @@ export default function TasksPage() {
     const handleSaveTask = async (data: any) => {
         try {
             if (editingTask && editingTask.id) {
-                // For updates, exclude projectId as it's not allowed in UpdateTaskInput
-                const { projectId, ...updateData } = data;
+                // For updates, exclude projectId and listId (not in UpdateTaskInput)
+                const { projectId, listId, ...updateData } = data;
                 const result = await updateTask({
                     variables: {
                         id: editingTask.id,
@@ -1018,13 +1030,37 @@ export default function TasksPage() {
                                                 </tr>
                                             );
                                         })}
+                                        {(tasksByListId.get('unassigned')?.length ?? 0) > 0 && (
+                                            <tr
+                                                className="cursor-pointer hover:bg-amber-50/50 border-t border-amber-200/50"
+                                                onClick={() => setSelectedListId('unassigned')}
+                                            >
+                                                <td className="px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+                                                    No list (unassigned)
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600">
+                                                    {tasksByListId.get('unassigned')!.filter((t: any) => t.status === 'COMPLETED').length}/{tasksByListId.get('unassigned')!.length}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600">
+                                                    {tasksByListId.get('unassigned')!.length}
+                                                </td>
+                                                <td className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">
+                                                    Assign via Edit
+                                                </td>
+                                            </tr>
+                                        )}
                                         {taskLists.length === 0 && (
                                             <tr>
                                                 <td
-                                                    className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                    className="px-4 py-6 text-center"
                                                     colSpan={4}
                                                 >
-                                                    No lists yet. Create a list to start organizing tasks.
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                        No lists yet. Tasks can only be created inside a list.
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                                                        Create a list using &quot;+ Add List&quot; above to add tasks.
+                                                    </p>
                                                 </td>
                                             </tr>
                                         )}
@@ -1046,7 +1082,9 @@ export default function TasksPage() {
                                     </button>
                                     <span className="mx-1">/</span>
                                     <span className="font-medium text-gray-700">
-                                        {taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected list'}
+                                        {selectedListId === 'unassigned'
+                                            ? 'No list (unassigned)'
+                                            : taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected list'}
                                     </span>
                                 </nav>
                             </div>
@@ -1058,16 +1096,20 @@ export default function TasksPage() {
                                             Tasks in list
                                         </h3>
                                         <p className="text-xs text-gray-500">
-                                            Click a task name to see full details.
+                                            {selectedListId === 'unassigned'
+                                                ? 'These tasks have no list. Open a task and set its List to move it into a list.'
+                                                : 'Click a task name to see full details.'}
                                         </p>
                                     </div>
-                                    <button
-                                        onClick={() => handleAddTaskToList(selectedListId)}
-                                        className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
-                                    >
-                                        <PlusIcon className="h-4 w-4 mr-1" />
-                                        Add Task
-                                    </button>
+                                    {selectedListId !== 'unassigned' && (
+                                        <button
+                                            onClick={() => handleAddTaskToList(selectedListId)}
+                                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
+                                        >
+                                            <PlusIcon className="h-4 w-4 mr-1" />
+                                            Add Task
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="min-w-full divide-y divide-gray-200">

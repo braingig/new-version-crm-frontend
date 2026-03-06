@@ -8,6 +8,7 @@ import {
     GET_TIME_ENTRIES,
     GET_PROJECTS,
     GET_USERS,
+    GET_TASK_LISTS,
     UPDATE_TASK,
     DELETE_TASK,
     ADD_COMMENT,
@@ -91,8 +92,13 @@ export default function TaskDetailsPage() {
 
     const { data: projectsData } = useQuery(GET_PROJECTS);
     const { data: usersData } = useQuery(GET_USERS);
+    const { data: listsData } = useQuery(GET_TASK_LISTS, {
+        variables: { projectId: task?.projectId ?? '' },
+        skip: !task?.projectId,
+    });
     const projects = projectsData?.projects ?? [];
     const users = usersData?.users ?? [];
+    const taskLists = listsData?.taskLists ?? [];
 
     const { data: activeData, refetch: refetchActive } = useQuery(GET_ACTIVE_TIME_ENTRY, {
         fetchPolicy: 'network-only',
@@ -136,8 +142,8 @@ export default function TaskDetailsPage() {
 
     const handleEditSave = async (submitData: any) => {
         try {
-            // Exclude projectId from update (backend may not allow changing it)
-            const { projectId, ...updateData } = submitData;
+            // Exclude projectId and listId from update (UpdateTaskInput does not include them)
+            const { projectId, listId, ...updateData } = submitData;
             await updateTask({
                 variables: { id: taskId, input: updateData },
             });
@@ -243,21 +249,22 @@ export default function TaskDetailsPage() {
         return start >= todayStart && start < todayEnd;
     });
 
-    const sumTodayMinutes = (entries: any[]) =>
+    // Sum of today's entry durations in seconds (so right sidebar matches left)
+    const sumTodaySeconds = (entries: any[]) =>
         entries.reduce((sum: number, entry: any) => {
             const start = entry.startTime ? new Date(entry.startTime) : null;
             if (!start || start < todayStart || start >= todayEnd) return sum;
-            const d = entry.duration ?? 0;
-            return sum + (d >= 60 ? Math.floor(d / 60) : d);
+            return sum + (entry.duration ?? 0);
         }, 0);
 
     const useSubtaskTimeSum = !!task?.subTasks?.length;
-    const effectiveTotalMinutes = useSubtaskTimeSum
-        ? (task?.subTasks ?? []).reduce((s: number, st: any) => s + (st.timeSpent ?? 0), 0)
-        : (task?.timeSpent ?? 0);
-    const todayMinutes = useSubtaskTimeSum
-        ? sumTodayMinutes(subtaskTimeEntries)
-        : sumTodayMinutes(timeEntries);
+    // Use time-entry totals so right sidebar matches left (not task.timeSpent from backend)
+    const todaySecondsForSidebar = useSubtaskTimeSum
+        ? sumTodaySeconds(subtaskTimeEntries)
+        : sumTodaySeconds(timeEntries);
+    const totalSecondsForSidebar = useSubtaskTimeSum
+        ? subtaskTimeEntries.reduce((s: number, e: any) => s + (e.duration ?? 0), 0)
+        : totalSeconds;
 
     // Daily totals (seconds) for current week/month
     const buildDailyTotals = () => {
@@ -880,9 +887,9 @@ export default function TaskDetailsPage() {
                                         Time
                                     </dt>
                                     <dd className="text-sm font-medium text-gray-900 dark:text-white space-y-0.5">
-                                        <div>Today: {formatMinutes(todayMinutes)}</div>
+                                        <div>Today: {formatDuration(todaySecondsForSidebar)}</div>
                                         <div>
-                                            Total: {formatMinutes(effectiveTotalMinutes)}
+                                            Total: {formatDuration(totalSecondsForSidebar)}
                                             {task.estimatedTime != null && (
                                                 <span className="text-gray-500 dark:text-gray-400 font-normal">
                                                     {' '}
@@ -970,6 +977,7 @@ export default function TaskDetailsPage() {
                 onSave={handleEditSave}
                 projects={projects}
                 users={users}
+                lists={taskLists}
             />
         </div>
     );

@@ -255,6 +255,7 @@ export const GET_TASK_DETAILS = gql`
       status
       priority
       projectId
+      listId
       assignedToId
       startDate
       dueDate

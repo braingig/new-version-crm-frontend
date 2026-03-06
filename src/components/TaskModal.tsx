@@ -109,7 +109,7 @@ export default function TaskModal({
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        {task ? 'Edit Task' : parentTask ? 'Add Subtask' : 'Create New Task'}
+                        {task?.id ? 'Edit Task' : parentTask ? 'Add Subtask' : 'Create New Task'}
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <XMarkIcon className="h-5 w-5" />
@@ -156,6 +156,30 @@ export default function TaskModal({
                                     {parentTask.title}
                                 </div>
                             </div>
+                        ) : task ? (
+                            /* Edit or "add to list": show Project and List read-only so fake filler cannot change them */
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</label>
+                                    <div
+                                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white text-sm"
+                                        aria-readonly="true"
+                                    >
+                                        {projects.find((p: any) => p.id === formData.projectId)?.name ?? '—'}
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">List</label>
+                                    <div
+                                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white text-sm"
+                                        aria-readonly="true"
+                                    >
+                                        {formData.listId
+                                            ? lists.find((l: any) => l.id === formData.listId)?.name ?? '—'
+                                            : 'No list'}
+                                    </div>
+                                </div>
+                            </>
                         ) : (
                             <>
                                 <div>
@@ -163,8 +187,10 @@ export default function TaskModal({
                                     <select
                                         required
                                         value={formData.projectId}
-                                        onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                                        onChange={(e) => setFormData({ ...formData, projectId: e.target.value, listId: '' })}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        autoComplete="off"
+                                        data-form-type="other"
                                     >
                                         <option value="">Select Project</option>
                                         {projects.map((project: any) => (
@@ -181,6 +207,8 @@ export default function TaskModal({
                                         value={formData.listId}
                                         onChange={(e) => setFormData({ ...formData, listId: e.target.value })}
                                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        autoComplete="off"
+                                        data-form-type="other"
                                     >
                                         <option value="">Select List</option>
                                         {lists
@@ -234,7 +262,7 @@ export default function TaskModal({
                             Cancel
                         </button>
                         <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700">
-                            {task ? 'Update' : parentTask ? 'Add Subtask' : 'Create'} Task
+                            {task?.id ? 'Update' : parentTask ? 'Add Subtask' : 'Create'} Task
                         </button>
                     </div>
                 </form>
