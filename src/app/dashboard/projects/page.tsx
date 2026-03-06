@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT } from '@/lib/graphql/queries';
 import { 
@@ -220,9 +221,12 @@ export default function ProjectsPage() {
                             <div className="p-6">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
-                                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                                        <Link
+                                            href={`/dashboard/projects/${project.id}`}
+                                            className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline block"
+                                        >
                                             {project.name}
-                                        </h3>
+                                        </Link>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
                                             {project.description}
                                         </p>
@@ -251,16 +255,24 @@ export default function ProjectsPage() {
                                     <div className="text-xs text-gray-500 dark:text-gray-400">
                                         Created {formatDate(project.createdAt)}
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 items-center">
+                                        <Link
+                                            href={`/dashboard/projects/${project.id}`}
+                                            className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                        >
+                                            View
+                                        </Link>
                                         <button
-                                            onClick={() => openEditModal(project)}
+                                            onClick={(e) => { e.preventDefault(); openEditModal(project); }}
                                             className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                            title="Edit"
                                         >
                                             <PencilIcon className="h-4 w-4" />
                                         </button>
                                         <button
-                                            onClick={() => openDeleteConfirm(project)}
+                                            onClick={(e) => { e.preventDefault(); openDeleteConfirm(project); }}
                                             className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                            title="Delete"
                                         >
                                             <TrashIcon className="h-4 w-4" />
                                         </button>
@@ -301,9 +313,12 @@ export default function ProjectsPage() {
                                     <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
-                                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                <Link
+                                                    href={`/dashboard/projects/${project.id}`}
+                                                    className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
+                                                >
                                                     {project.name}
-                                                </div>
+                                                </Link>
                                                 <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
                                                     {project.description}
                                                 </div>
@@ -324,6 +339,12 @@ export default function ProjectsPage() {
                                             {formatDate(project.startDate)} - {formatDate(project.endDate)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <Link
+                                                href={`/dashboard/projects/${project.id}`}
+                                                className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-3"
+                                            >
+                                                View
+                                            </Link>
                                             <button
                                                 className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3"
                                                 onClick={() => openEditModal(project)}

@@ -90,6 +90,29 @@ export const GET_PROJECTS = gql`
   }
 `;
 
+export const GET_PROJECT = gql`
+  query GetProject($id: String!) {
+    project(id: $id) {
+      id
+      name
+      description
+      budget
+      hourlyRate
+      status
+      startDate
+      endDate
+      clientName
+      createdBy {
+        id
+        name
+        email
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
 export const CREATE_PROJECT = gql`
   mutation CreateProject($input: CreateProjectInput!) {
     createProject(input: $input) {
@@ -551,6 +574,24 @@ export const GET_TIME_ENTRIES = gql`
         id
         name
         email
+      }
+    }
+  }
+`;
+
+/** Report: total time per employee per day, with projects. For admin view and export. Uses existing TimeEntry data. */
+export const GET_EMPLOYEE_DAILY_ACTIVITY = gql`
+  query GetEmployeeDailyActivity($startDate: Date!, $endDate: Date!, $employeeId: String) {
+    employeeDailyActivity(startDate: $startDate, endDate: $endDate, employeeId: $employeeId) {
+      employeeId
+      employeeName
+      email
+      date
+      totalSeconds
+      projects {
+        projectId
+        projectName
+        seconds
       }
     }
   }

@@ -547,12 +547,15 @@ export default function TasksPage() {
     const users = usersData?.users || [];
     const taskLists = listsData?.taskLists || [];
 
-    // Initialize selected project to first project when available
+    // Initialize selected project from URL (?projectId=) or first project when available
+    const projectIdFromUrl = searchParams.get('projectId');
     useEffect(() => {
-        if (!selectedProjectId && projects.length > 0) {
+        if (projectIdFromUrl && projects.some((p: any) => p.id === projectIdFromUrl)) {
+            setSelectedProjectId(projectIdFromUrl);
+        } else if (!selectedProjectId && projects.length > 0) {
             setSelectedProjectId(projects[0].id);
         }
-    }, [projects, selectedProjectId]);
+    }, [projects, selectedProjectId, projectIdFromUrl]);
 
     // When project has no lists or selected list is not in current project, clear selection so "Add Task" is never shown
     // Keep 'unassigned' selected if user is viewing tasks with no list
