@@ -41,6 +41,7 @@ import {
 } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import TaskModal from '@/components/TaskModal';
+import { useAuthStore } from '@/lib/store';
 
 const priorityColors: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -60,6 +61,8 @@ export default function TaskDetailsPage() {
     const params = useParams();
     const router = useRouter();
     const taskId = params?.id as string;
+    const currentUser = useAuthStore((state) => state.user);
+    const currentUserId = currentUser?.id;
 
     const [newComment, setNewComment] = useState('');
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -333,6 +336,17 @@ export default function TaskDetailsPage() {
 
     const dailyTotals = buildDailyTotals();
 
+    // Only users assigned to the task should be able to control the timer
+    const isAssignedToTask = useMemo(() => {
+        if (!currentUserId || !task) return false;
+        const explicitAssignees: string[] =
+            task.assignees?.map((a: any) => a.id) ?? [];
+        if (task.assignedToId && !explicitAssignees.includes(task.assignedToId)) {
+            explicitAssignees.push(task.assignedToId);
+        }
+        return explicitAssignees.includes(currentUserId);
+    }, [currentUserId, task]);
+
     // Who worked on this task and total time per person (from time entries; duration in seconds)
     const timeByPerson = useMemo(() => {
         const byEmployee = new Map<string, { name: string; email?: string; totalSeconds: number }>();
@@ -601,51 +615,53 @@ export default function TaskDetailsPage() {
                         </div>
                     )}
 
-                    {/* Time tracking controls */}
-                    <div className="card">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <ClockIcon className="h-5 w-5 text-primary-600" />
-                                    Time tracking
-                                </h2>
-                                <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">
-                                    Total logged: {formatDuration(totalSeconds)}
-                                </p>
-                                {isActiveForThisTask && activeEntry && (
-                                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                        Timer running for this task…
+                    {/* Time tracking controls – only visible to assigned users */}
+                    {isAssignedToTask && (
+                        <div className="card">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                        <ClockIcon className="h-5 w-5 text-primary-600" />
+                                        Time tracking
+                                    </h2>
+                                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-200">
+                                        Total logged: {formatDuration(totalSeconds)}
                                     </p>
-                                )}
-                                {activeEntry && !isActiveForThisTask && (
-                                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                        Another task is currently running.
-                                    </p>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {isActiveForThisTask ? (
-                                    <button
-                                        type="button"
-                                        onClick={handleStopTimer}
-                                        disabled={stopping}
-                                        className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-60"
-                                    >
-                                        {stopping ? 'Stopping…' : 'Stop'}
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={handleStartTimer}
-                                        disabled={starting || (!!activeEntry && !isActiveForThisTask)}
-                                        className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 disabled:opacity-60"
-                                    >
-                                        {starting ? 'Starting…' : 'Start timer'}
-                                    </button>
-                                )}
+                                    {isActiveForThisTask && activeEntry && (
+                                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                            Timer running for this task…
+                                        </p>
+                                    )}
+                                    {activeEntry && !isActiveForThisTask && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                            Another task is currently running.
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {isActiveForThisTask ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleStopTimer}
+                                            disabled={stopping}
+                                            className="px-3 py-1.5 rounded-md bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-60"
+                                        >
+                                            {stopping ? 'Stopping…' : 'Stop'}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleStartTimer}
+                                            disabled={starting || (!!activeEntry && !isActiveForThisTask)}
+                                            className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700 disabled:opacity-60"
+                                        >
+                                            {starting ? 'Starting…' : 'Start timer'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Who's working on this task + time by person */}
                     <div className="card">
