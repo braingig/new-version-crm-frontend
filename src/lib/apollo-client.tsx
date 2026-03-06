@@ -4,7 +4,7 @@ import { ApolloClient, InMemoryCache, createHttpLink, ApolloProvider as Provider
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { fromPromise } from '@apollo/client/link/utils';
-import { REFRESH_TOKEN } from './graphql/queries';
+import { useAuthStore } from './store';
 
 const httpLink = createHttpLink({
     uri: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql',
@@ -53,10 +53,7 @@ const getNewToken = async () => {
     }
 
     const { accessToken, refreshToken: newRefreshToken } = result.data.refreshToken;
-    
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', newRefreshToken);
-    
+    useAuthStore.getState().setTokens(accessToken, newRefreshToken);
     return accessToken;
 };
 
@@ -70,8 +67,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
                     fromPromise(
                         getNewToken()
                             .catch(() => {
-                                localStorage.removeItem('accessToken');
-                                localStorage.removeItem('refreshToken');
+                                useAuthStore.getState().logout();
                                 window.location.href = '/login';
                                 return null;
                             })

@@ -15,6 +15,7 @@ interface AuthState {
     refreshToken: string | null;
     _hasHydrated: boolean;
     setAuth: (user: User, accessToken: string, refreshToken: string) => void;
+    setTokens: (accessToken: string, refreshToken: string) => void;
     logout: () => void;
 }
 
@@ -30,6 +31,11 @@ export const useAuthStore = create<AuthState>()(
                     localStorage.setItem('accessToken', accessToken);
                     localStorage.setItem('refreshToken', refreshToken);
                     set({ user, accessToken, refreshToken });
+                },
+                setTokens: (accessToken, refreshToken) => {
+                    localStorage.setItem('accessToken', accessToken);
+                    localStorage.setItem('refreshToken', refreshToken);
+                    set({ accessToken, refreshToken });
                 },
                 logout: () => {
                     localStorage.removeItem('accessToken');
