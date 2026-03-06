@@ -29,12 +29,18 @@ export default function TaskModal({
         projectId: '',
         listId: '',
         assignedToId: '',
+        assigneeIds: [] as string[],
         dueDate: '',
         estimatedTime: '',
     });
 
     useEffect(() => {
         if (task) {
+            const ids = task.assignees?.length
+                ? task.assignees.map((a: any) => a.id)
+                : task.assignedToId
+                    ? [task.assignedToId]
+                    : [];
             setFormData({
                 title: task.title || '',
                 description: task.description || '',
@@ -42,6 +48,7 @@ export default function TaskModal({
                 projectId: task.projectId || (task.project?.id ?? ''),
                 listId: task.listId || '',
                 assignedToId: task.assignedToId || '',
+                assigneeIds: ids,
                 dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                 estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
             });
@@ -53,6 +60,7 @@ export default function TaskModal({
                 projectId: parentTask.projectId,
                 listId: '',
                 assignedToId: '',
+                assigneeIds: [],
                 dueDate: '',
                 estimatedTime: '',
             });
@@ -64,6 +72,7 @@ export default function TaskModal({
                 projectId: '',
                 listId: '',
                 assignedToId: '',
+                assigneeIds: [],
                 dueDate: '',
                 estimatedTime: '',
             });
@@ -95,6 +104,10 @@ export default function TaskModal({
         };
         if (formData.listId) submitData.listId = formData.listId;
         if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
+        if (formData.assigneeIds?.length) {
+            submitData.assigneeIds = formData.assigneeIds;
+            if (!submitData.assignedToId) submitData.assignedToId = formData.assigneeIds[0];
+        }
         if (formData.dueDate) {
             const dueDate = new Date(formData.dueDate);
             if (!isNaN(dueDate.getTime())) submitData.dueDate = dueDate;
@@ -223,17 +236,32 @@ export default function TaskModal({
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Assignee</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Assignees (hold Ctrl/Cmd to select multiple)
+                            </label>
                             <select
-                                value={formData.assignedToId}
-                                onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
+                                multiple
+                                size={4}
+                                value={formData.assigneeIds}
+                                onChange={(e) => {
+                                    const selected = Array.from(e.target.selectedOptions, (o) => o.value);
+                                    setFormData({
+                                        ...formData,
+                                        assigneeIds: selected,
+                                        assignedToId: selected[0] || '',
+                                    });
+                                }}
                                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             >
-                                <option value="">Unassigned</option>
                                 {users.map((user: any) => (
                                     <option key={user.id} value={user.id}>{user.name}</option>
                                 ))}
                             </select>
+                            {formData.assigneeIds.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {formData.assigneeIds.length} selected
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>

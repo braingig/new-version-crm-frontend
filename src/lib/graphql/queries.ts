@@ -277,6 +277,16 @@ export const GET_TASK_DETAILS = gql`
         name
         email
       }
+      createdBy {
+        id
+        name
+        email
+      }
+      assignees {
+        id
+        name
+        email
+      }
       subTasks {
         id
         title
@@ -337,6 +347,11 @@ export const CREATE_TASK = gql`
         listId
         parentTaskId
       }
+      assignees {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -357,6 +372,11 @@ export const UPDATE_TASK = gql`
       estimatedTime
       createdAt
       updatedAt
+      assignees {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -527,6 +547,11 @@ export const GET_TIME_ENTRIES = gql`
       employeeId
       isManual
       createdAt
+      employee {
+        id
+        name
+        email
+      }
     }
   }
 `;

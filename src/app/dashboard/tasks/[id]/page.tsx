@@ -39,7 +39,7 @@ import {
     startOfMonth,
     endOfMonth,
 } from 'date-fns';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import TaskModal from '@/components/TaskModal';
 
 const priorityColors: Record<string, string> = {
@@ -266,7 +266,7 @@ export default function TaskDetailsPage() {
         ? subtaskTimeEntries.reduce((s: number, e: any) => s + (e.duration ?? 0), 0)
         : totalSeconds;
 
-    // Daily totals (seconds) for current week/month
+    // Daily totals (seconds) for current week/month, with assignee-wise breakdown per day
     const buildDailyTotals = () => {
         if (allTimeEntries.length === 0) return [];
 
@@ -288,6 +288,7 @@ export default function TaskDetailsPage() {
                 date: Date;
                 totalSeconds: number;
                 count: number;
+                byAssignee: Array<{ employeeId: string; name: string; email?: string; totalSeconds: number }>;
             }
         >();
 
@@ -303,22 +304,54 @@ export default function TaskDetailsPage() {
                           ((entry.endTime ? new Date(entry.endTime) : new Date()).getTime() - start.getTime()) / 1000
                       );
 
+            const employeeId = entry.employeeId || 'unknown';
+            const name = entry.employee?.name ?? users.find((u: any) => u.id === entry.employeeId)?.name ?? 'Unknown';
+            const email = entry.employee?.email ?? users.find((u: any) => u.id === entry.employeeId)?.email;
+
             if (!byDay.has(key)) {
                 byDay.set(key, {
                     date: startOfDay(start),
                     totalSeconds: 0,
                     count: 0,
+                    byAssignee: [],
                 });
             }
             const bucket = byDay.get(key)!;
             bucket.totalSeconds += durationSeconds;
             bucket.count += 1;
+
+            const existing = bucket.byAssignee.find((a) => a.employeeId === employeeId);
+            if (existing) {
+                existing.totalSeconds += durationSeconds;
+            } else {
+                bucket.byAssignee.push({ employeeId, name, email, totalSeconds: durationSeconds });
+            }
         });
 
         return Array.from(byDay.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
     };
 
     const dailyTotals = buildDailyTotals();
+
+    // Who worked on this task and total time per person (from time entries; duration in seconds)
+    const timeByPerson = useMemo(() => {
+        const byEmployee = new Map<string, { name: string; email?: string; totalSeconds: number }>();
+        timeEntries.forEach((entry: any) => {
+            const id = entry.employeeId || 'unknown';
+            const name = entry.employee?.name ?? users.find((u: any) => u.id === entry.employeeId)?.name ?? 'Unknown';
+            const email = entry.employee?.email ?? users.find((u: any) => u.id === entry.employeeId)?.email;
+            const sec = typeof entry.duration === 'number' ? entry.duration : 0;
+            const prev = byEmployee.get(id);
+            byEmployee.set(id, {
+                name,
+                email,
+                totalSeconds: (prev?.totalSeconds ?? 0) + sec,
+            });
+        });
+        return Array.from(byEmployee.entries())
+            .map(([employeeId, v]) => ({ employeeId, ...v }))
+            .sort((a, b) => b.totalSeconds - a.totalSeconds);
+    }, [timeEntries, users]);
 
     const handleStartTimer = async () => {
         if (!taskId) return;
@@ -614,6 +647,60 @@ export default function TaskDetailsPage() {
                         </div>
                     </div>
 
+                    {/* Who's working on this task + time by person */}
+                    <div className="card">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
+                            <UserCircleIcon className="h-5 w-5 text-primary-600" />
+                            Who&apos;s working on this task
+                        </h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                            Assignee and everyone who has logged time. Total time per person.
+                        </p>
+                        {timeByPerson.length > 0 ? (
+                            <div className="overflow-x-auto border border-gray-200 dark:border-gray-600 rounded-lg">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                                    <thead className="bg-gray-50 dark:bg-gray-800">
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Person
+                                            </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Total time
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
+                                        {timeByPerson.map((row: any) => (
+                                            <tr key={row.employeeId}>
+                                                <td className="px-4 py-2">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {row.name}
+                                                    </div>
+                                                    {row.email && (
+                                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {row.email}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                    {formatDuration(row.totalSeconds)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 py-3">
+                                No time logged yet. Assignee: {task?.assignedTo ? (
+                                    <span className="font-medium text-gray-900 dark:text-white">{task.assignedTo.name}</span>
+                                ) : (
+                                    <span>Not assigned</span>
+                                )}
+                            </p>
+                        )}
+                    </div>
+
                     {/* Today's time entries */}
                     <div className="card">
                         <div className="flex items-center justify-between mb-3">
@@ -632,6 +719,9 @@ export default function TaskDetailsPage() {
                                                     Task
                                                 </th>
                                             )}
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Person
+                                            </th>
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                                                 Start
                                             </th>
@@ -657,6 +747,9 @@ export default function TaskDetailsPage() {
                                                               '-'}
                                                     </td>
                                                 )}
+                                                <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                    {entry.employee?.name ?? users.find((u: any) => u.id === entry.employeeId)?.name ?? '—'}
+                                                </td>
                                                 <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
                                                     {entry.startTime ? format(new Date(entry.startTime), 'h:mm a') : '-'}
                                                 </td>
@@ -743,6 +836,9 @@ export default function TaskDetailsPage() {
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                                                 Entries
                                             </th>
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                By assignee
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
@@ -759,6 +855,26 @@ export default function TaskDetailsPage() {
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
                                                     {day.count}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
+                                                    {day.byAssignee.length > 0 ? (
+                                                        <ul className="space-y-0.5">
+                                                            {day.byAssignee
+                                                                .sort((a, b) => b.totalSeconds - a.totalSeconds)
+                                                                .map((a) => (
+                                                                    <li key={a.employeeId} className="flex items-center justify-between gap-2">
+                                                                        <span className="font-medium text-gray-900 dark:text-white truncate" title={a.email}>
+                                                                            {a.name}
+                                                                        </span>
+                                                                        <span className="text-gray-600 dark:text-gray-400 shrink-0">
+                                                                            {formatDuration(a.totalSeconds)}
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -841,19 +957,41 @@ export default function TaskDetailsPage() {
                             Details
                         </h2>
                         <dl className="space-y-3">
-                            {task.assignedTo && (
+                            {(task.assignees?.length || task.assignedTo) && (
+                                <div className="flex items-center gap-2">
+                                    <UserCircleIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                    <div className="min-w-0">
+                                        <dt className="text-xs text-gray-500 dark:text-gray-400">
+                                            {task.assignees?.length > 1 ? 'Assignees' : 'Assignee'}
+                                        </dt>
+                                        {(task.assignees?.length ? task.assignees : task.assignedTo ? [task.assignedTo] : []).map((u: any) => (
+                                            <dd key={u.id} className="text-sm font-medium text-gray-900 dark:text-white">
+                                                {u.name}
+                                                {u.email && (
+                                                    <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">
+                                                        {u.email}
+                                                    </span>
+                                                )}
+                                            </dd>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {task.createdBy && (
                                 <div className="flex items-center gap-2">
                                     <UserCircleIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                                     <div>
                                         <dt className="text-xs text-gray-500 dark:text-gray-400">
-                                            Assignee
+                                            Assigned by
                                         </dt>
                                         <dd className="text-sm font-medium text-gray-900 dark:text-white">
-                                            {task.assignedTo.name}
+                                            {task.createdBy.name}
                                         </dd>
-                                        <dd className="text-xs text-gray-500 dark:text-gray-400">
-                                            {task.assignedTo.email}
-                                        </dd>
+                                        {task.createdBy.email && (
+                                            <dd className="text-xs text-gray-500 dark:text-gray-400">
+                                                {task.createdBy.email}
+                                            </dd>
+                                        )}
                                     </div>
                                 </div>
                             )}
