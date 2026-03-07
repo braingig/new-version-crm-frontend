@@ -581,7 +581,7 @@ export const GET_TIME_ENTRIES = gql`
 
 /** Report: total time per employee per day, with projects. For admin view and export. Uses existing TimeEntry data. */
 export const GET_EMPLOYEE_DAILY_ACTIVITY = gql`
-  query GetEmployeeDailyActivity($startDate: Date!, $endDate: Date!, $employeeId: String) {
+  query GetEmployeeDailyActivity($startDate: DateTime!, $endDate: DateTime!, $employeeId: String) {
     employeeDailyActivity(startDate: $startDate, endDate: $endDate, employeeId: $employeeId) {
       employeeId
       employeeName

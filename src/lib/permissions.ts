@@ -1,11 +1,11 @@
 /**
- * Role-based access: which routes and nav items each role can see.
+ * Role-based access for tech agency.
  * - ADMIN: full access
  * - TEAM_LEAD: everything except Sales
- * - HR: Dashboard, Employees, Time Tracker, Payroll
- * - DEVELOPER: Dashboard, Tasks, Time Tracker (own work)
- * - SALES: Dashboard, Sales, Time Tracker
- * - FINANCE: Dashboard, Payroll, Time Tracker
+ * - HR: Dashboard, Employees, Payroll, Reports
+ * - DEVELOPER: Dashboard, Tasks, Projects
+ * - SALES: Dashboard, Sales, Projects
+ * - SEO_EXPERT: Dashboard, Tasks, Projects, Reports (content/SEO work)
  */
 
 export type AppRole =
@@ -14,7 +14,7 @@ export type AppRole =
   | 'TEAM_LEAD'
   | 'DEVELOPER'
   | 'SALES'
-  | 'FINANCE';
+  | 'SEO_EXPERT';
 
 export const ROUTES = {
   DASHBOARD: '/dashboard',
@@ -24,52 +24,55 @@ export const ROUTES = {
   TIME_TRACKER: '/dashboard/time-tracker',
   PAYROLL: '/dashboard/payroll',
   SALES: '/dashboard/sales',
+  REPORTS: '/dashboard/reports',
 } as const;
 
-/** Routes allowed per role (exact path or segment). */
+/** Routes allowed per role (exact path or segment). Time Tracker commented out for now. */
 const ROLE_ROUTES: Record<AppRole, string[]> = {
   ADMIN: [
     ROUTES.DASHBOARD,
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
     ROUTES.TASKS,
-    ROUTES.TIME_TRACKER,
+    // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
     ROUTES.SALES,
+    ROUTES.REPORTS,
   ],
   TEAM_LEAD: [
     ROUTES.DASHBOARD,
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
     ROUTES.TASKS,
-    ROUTES.TIME_TRACKER,
+    // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
-    // no Sales
+    ROUTES.REPORTS,
   ],
   HR: [
     ROUTES.DASHBOARD,
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
-    ROUTES.TIME_TRACKER,
+    // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
+    ROUTES.REPORTS,
   ],
   DEVELOPER: [
     ROUTES.DASHBOARD,
     ROUTES.TASKS,
     ROUTES.PROJECTS,
-    ROUTES.TIME_TRACKER,
+    // ROUTES.TIME_TRACKER,
   ],
   SALES: [
     ROUTES.DASHBOARD,
     ROUTES.SALES,
     ROUTES.PROJECTS,
-    ROUTES.TIME_TRACKER,
+    // ROUTES.TIME_TRACKER,
   ],
-  FINANCE: [
+  SEO_EXPERT: [
     ROUTES.DASHBOARD,
-    ROUTES.PAYROLL,
+    ROUTES.TASKS,
     ROUTES.PROJECTS,
-    ROUTES.TIME_TRACKER,
+    ROUTES.REPORTS,
   ],
 };
 
