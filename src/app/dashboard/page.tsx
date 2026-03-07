@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@apollo/client';
 import { GET_PROJECTS, GET_TASKS, GET_USERS } from '@/lib/graphql/queries';
 import { useAuthStore } from '@/lib/store';
@@ -171,11 +172,12 @@ export default function DashboardPage() {
                     <div className="space-y-3">
                         {recentProjects.length > 0 ? (
                             recentProjects.map((project: any) => (
-                                <div
+                                <Link
                                     key={project.id}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    href={`/dashboard/projects/${project.id}`}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                                 >
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-gray-900 dark:text-white">
                                             {project.name}
                                         </h3>
@@ -184,14 +186,14 @@ export default function DashboardPage() {
                                         </p>
                                     </div>
                                     <span
-                                        className={`px-2 py-1 text-xs rounded-full ${project.status === 'ACTIVE'
+                                        className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${project.status === 'ACTIVE'
                                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                                                 : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
                                             }`}
                                     >
                                         {project.status}
                                     </span>
-                                </div>
+                                </Link>
                             ))
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400 text-center py-4">
@@ -209,11 +211,12 @@ export default function DashboardPage() {
                     <div className="space-y-3">
                         {recentTasks.length > 0 ? (
                             recentTasks.map((task: any) => (
-                                <div
+                                <Link
                                     key={task.id}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    href={`/dashboard/tasks/${task.id}`}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                                 >
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-gray-900 dark:text-white">
                                             {task.title}
                                         </h3>
@@ -222,7 +225,7 @@ export default function DashboardPage() {
                                         </p>
                                     </div>
                                     <span
-                                        className={`px-2 py-1 text-xs rounded-full ${task.status === 'COMPLETED'
+                                        className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${task.status === 'COMPLETED'
                                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                                                 : task.status === 'IN_PROGRESS'
                                                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
@@ -231,7 +234,7 @@ export default function DashboardPage() {
                                     >
                                         {task.status.replace('_', ' ')}
                                     </span>
-                                </div>
+                                </Link>
                             ))
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400 text-center py-4">
