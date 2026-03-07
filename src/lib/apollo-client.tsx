@@ -58,9 +58,16 @@ const getNewToken = async () => {
 };
 
 const errorLink = onError(({ graphQLErrors, operation, forward }) => {
+    // Never try to refresh token on Login mutation – let the login page show the error
+    const isLogin = operation.operationName === 'Login';
     if (graphQLErrors) {
         for (const err of graphQLErrors) {
             if (err.extensions?.code === 'UNAUTHENTICATED' || err.message.includes('Unauthorized')) {
+                if (isLogin) {
+                    const passThrough = new Error(err.message);
+                    (passThrough as Error & { graphQLErrors: typeof graphQLErrors }).graphQLErrors = graphQLErrors;
+                    return fromPromise(Promise.reject(passThrough));
+                }
                 if (!isRefreshing) {
                     isRefreshing = true;
                     

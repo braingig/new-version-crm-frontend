@@ -13,24 +13,38 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const [login, { loading }] = useMutation(LOGIN_MUTATION, {
-        onCompleted: (data) => {
-            const { accessToken, refreshToken, user } = data.login;
-            setAuth(user, accessToken, refreshToken);
-            if (typeof window !== 'undefined' && (window as any).electron) {
-                (window as any).electron.saveToken(accessToken);
-            }
-            router.push('/dashboard');
-        },
-        onError: (error) => {
-            setError(error.message);
-        },
-    });
+    const getLoginErrorMessage = (err: { message?: string; graphQLErrors?: Array<{ message?: string }>; networkError?: { message?: string } }) => {
+        const gqlMessage = err.graphQLErrors?.[0]?.message;
+        const msg = (gqlMessage || err.message || err.networkError?.message || 'Login failed.').trim();
+        if (msg.toLowerCase().includes('invalid credentials') || msg.toLowerCase().includes('unauthorized')) {
+            return 'Invalid email or password.';
+        }
+        if (msg.toLowerCase().includes('not active')) {
+            return 'Account is not active.';
+        }
+        return msg;
+    };
+
+    const [login, { loading }] = useMutation(LOGIN_MUTATION);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        await login({ variables: { email, password } });
+        try {
+            const result = await login({ variables: { email, password } });
+            const data = result.data?.login;
+            if (data) {
+                const { accessToken, refreshToken, user } = data;
+                setAuth(user, accessToken, refreshToken);
+                if (typeof window !== 'undefined' && (window as any).electron) {
+                    (window as any).electron.saveToken(accessToken);
+                }
+                router.push('/dashboard');
+            }
+        } catch (err: unknown) {
+            const apolloErr = err as { message?: string; graphQLErrors?: Array<{ message?: string }>; networkError?: { message?: string } };
+            setError(getLoginErrorMessage(apolloErr));
+        }
     };
 
     return (
@@ -48,7 +62,7 @@ export default function LoginPage() {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
                     <form onSubmit={handleSubmit} className="space-y-6">
                         {error && (
-                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg">
+                            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm" role="alert">
                                 {error}
                             </div>
                         )}
