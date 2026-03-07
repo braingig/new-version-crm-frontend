@@ -171,12 +171,8 @@ export default function TaskDetailsPage() {
         return `${s}s`;
     };
 
-    const getEntryDuration = (entry: any) => {
-        if (entry.duration != null && entry.endTime) return formatDuration(entry.duration);
-        const start = new Date(entry.startTime);
-        const end = entry.endTime ? new Date(entry.endTime) : new Date();
-        return formatDuration(Math.floor((end.getTime() - start.getTime()) / 1000));
-    };
+    // Saved duration only (for DETAILS sidebar and time entries table). Live timer only in Time tracking card.
+    const getEntryDuration = (entry: any) => formatDuration(entry.duration ?? 0);
 
     const timeEntries = timeEntriesData?.timeEntries ?? [];
     const subtaskTimeEntries = subtaskTimeEntriesData?.timeEntries ?? [];
@@ -262,12 +258,13 @@ export default function TaskDetailsPage() {
 
     const useSubtaskTimeSum = !!task?.subTasks?.length;
     // Use time-entry totals so right sidebar matches left (not task.timeSpent from backend)
+    // Sidebar shows saved totals only (no live timer) – updates after timer stop
     const todaySecondsForSidebar = useSubtaskTimeSum
         ? sumTodaySeconds(subtaskTimeEntries)
         : sumTodaySeconds(timeEntries);
     const totalSecondsForSidebar = useSubtaskTimeSum
         ? subtaskTimeEntries.reduce((s: number, e: any) => s + (e.duration ?? 0), 0)
-        : totalSeconds;
+        : totalSecondsCompleted;
 
     // Daily totals (seconds) for current week/month, with assignee-wise breakdown per day
     const buildDailyTotals = () => {

@@ -45,10 +45,10 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
           input: {
             name: formData.name,
             description: formData.description,
-            budget: parseFloat(formData.budget),
+            budget: formData.budget ? parseFloat(formData.budget) : undefined,
             hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined,
             status: formData.status,
-            startDate: new Date(formData.startDate),
+            startDate: formData.startDate ? new Date(formData.startDate) : undefined,
             endDate: formData.endDate ? new Date(formData.endDate) : undefined,
             clientName: formData.clientName,
           },
@@ -123,14 +123,13 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Budget ($) *
+                Budget ($)
               </label>
               <input
                 type="number"
                 name="budget"
                 value={formData.budget}
                 onChange={handleChange}
-                required
                 step="0.01"
                 min="0"
                 placeholder="50000"
@@ -189,14 +188,13 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Start Date *
+                Start Date
               </label>
               <input
                 type="date"
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleChange}
-                required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
             </div>

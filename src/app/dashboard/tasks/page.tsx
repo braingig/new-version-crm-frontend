@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import {
@@ -13,6 +13,7 @@ import {
     TrashIcon,
     Squares2X2Icon,
     XMarkIcon,
+    FolderIcon,
 } from '@heroicons/react/24/outline';
 import {
     ChevronDownIcon,
@@ -500,6 +501,8 @@ export default function TasksPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showFilters, setShowFilters] = useState(false);
+    const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+    const projectDropdownRef = useRef<HTMLDivElement>(null);
     const [showListModal, setShowListModal] = useState(false);
     const [editingList, setEditingList] = useState<any | null>(null);
     const [showModal, setShowModal] = useState(false);
@@ -568,6 +571,19 @@ export default function TasksPage() {
             setSelectedListId(null);
         }
     }, [selectedProjectId, taskLists, selectedListId]);
+
+    // Close project dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
+                setProjectDropdownOpen(false);
+            }
+        };
+        if (projectDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [projectDropdownOpen]);
 
     const allTasksFlattened = useMemo(() => flattenTasks(tasks), [tasks]);
 
@@ -845,78 +861,102 @@ export default function TasksPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-6">
             {/* Header */}
             <div className="mb-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 sm:gap-6">
+                    {/* Title and description */}
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Tasks Workspace</h1>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Organize tasks by project folders, lists, and drag tasks between lists like ClickUp.
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tasks</h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            Manage tasks by project and list. Create lists and move tasks between them.
                         </p>
                     </div>
-                    <div className="flex items-center space-x-3">
-                        <div className="hidden sm:flex items-center space-x-2">
-                            <span className="text-xs uppercase tracking-wide text-gray-400">Workspace</span>
-                            <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
-                                Main workspace
-                            </span>
-                        </div>
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                            <FunnelIcon className="h-4 w-4 mr-2" />
-                            Filters
-                            {(filters.assignedToId || filters.priority) && (
-                                <span className="ml-2 px-2 py-0.5 text-xs bg-primary-600 text-white rounded-full">
-                                    {[filters.assignedToId, filters.priority].filter(Boolean).length}
+
+                    {/* Toolbar: Project selector + Workspace + Filters + Add List */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Project (folder) selector - custom dropdown */}
+                        <div className="relative min-w-0" ref={projectDropdownRef}>
+                            <button
+                                type="button"
+                                onClick={() => setProjectDropdownOpen((open) => !open)}
+                                aria-haspopup="listbox"
+                                aria-expanded={projectDropdownOpen}
+                                aria-label="Select project folder"
+                                className="inline-flex items-center w-full min-w-[180px] max-w-[280px] py-2.5 pl-3 pr-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-400 transition-colors text-left"
+                            >
+                                <FolderIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" aria-hidden />
+                                <span className="flex-1 min-w-0 truncate ml-2.5 text-sm font-medium text-gray-900 dark:text-white">
+                                    {projects.length === 0 ? 'No projects' : (projects.find((p: any) => p.id === selectedProjectId)?.name ?? 'Select project')}
                                 </span>
+                                <ChevronDownIcon className={`h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0 ml-1 transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} aria-hidden />
+                            </button>
+                            {projectDropdownOpen && (
+                                <div
+                                    role="listbox"
+                                    className="absolute left-0 top-full mt-1.5 min-w-[220px] max-h-[280px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg z-50 py-1.5"
+                                >
+                                    {projects.length === 0 ? (
+                                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No projects</div>
+                                    ) : (
+                                        projects.map((project: any) => (
+                                            <button
+                                                key={project.id}
+                                                type="button"
+                                                role="option"
+                                                aria-selected={selectedProjectId === project.id}
+                                                onClick={() => {
+                                                    setSelectedProjectId(project.id);
+                                                    setProjectDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2.5 ${
+                                                    selectedProjectId === project.id
+                                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                            >
+                                                <FolderIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0 opacity-70" />
+                                                <span className="truncate">{project.name}</span>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
                             )}
-                        </button>
+                        </div>
 
-                        {/* Tasks can only be created inside a specific list (per requirements),
-                            so the global "Add Task" button is removed to avoid creating list-less tasks. */}
-                        <button
-                            onClick={handleCreateList}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                            <PlusIcon className="h-4 w-4 mr-2" />
-                            Add List
-                        </button>
-                    </div>
-                </div>
-
-                {/* Project (folder) selector */}
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <div>
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            Folder (Project)
-                        </span>
-                        <select
-                            value={selectedProjectId}
-                            onChange={(e) => setSelectedProjectId(e.target.value)}
-                            className="mt-1 w-64 max-w-full rounded-md border-gray-300 text-sm"
-                        >
-                            {projects.length === 0 && <option value="">No projects</option>}
-                            {projects.map((project: any) => (
-                                <option key={project.id} value={project.id}>
-                                    {project.name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end sm:justify-start">
+                            <button
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
+                            >
+                                <FunnelIcon className="h-4 w-4 mr-2 text-gray-500 dark:text-gray-400" />
+                                Filters
+                                {(filters.assignedToId || filters.priority) && (
+                                    <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-primary-600 text-white rounded-md">
+                                        {[filters.assignedToId, filters.priority].filter(Boolean).length}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleCreateList}
+                                className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
+                            >
+                                <PlusIcon className="h-4 w-4 mr-2" />
+                                Add List
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Filters */}
                 {showFilters && (
-                    <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                    <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Assignee
                                 </label>
                                 <select
                                     value={filters.assignedToId}
                                     onChange={(e) => handleFilterChange('assignedToId', e.target.value)}
-                                    className="w-full rounded-md border-gray-300 text-sm"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                 >
                                     <option value="">All Members</option>
                                     {users.map((user: any) => (
@@ -927,13 +967,13 @@ export default function TasksPage() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Priority
                                 </label>
                                 <select
                                     value={filters.priority}
                                     onChange={(e) => handleFilterChange('priority', e.target.value)}
-                                    className="w-full rounded-md border-gray-300 text-sm"
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm py-2 px-3 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                                 >
                                     <option value="">All Priorities</option>
                                     <option value="URGENT">Urgent</option>
@@ -945,7 +985,7 @@ export default function TasksPage() {
                             <div className="flex items-end">
                                 <button
                                     onClick={clearFilters}
-                                    className="w-full px-3 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                                    className="w-full px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                                 >
                                     Clear Filters
                                 </button>

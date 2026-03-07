@@ -49,7 +49,8 @@ export default function AddEmployeeModal({ isOpen, onClose, onEmployeeAdded }: A
           input: {
             ...formData,
             skills: formData.skills ? formData.skills.split(',').map(skill => skill.trim()) : [],
-            salaryAmount: parseFloat(formData.salaryAmount),
+            salaryType: formData.salaryType || undefined,
+            salaryAmount: formData.salaryAmount ? parseFloat(formData.salaryAmount) : undefined,
             joiningDate: new Date(formData.joiningDate),
           },
         },
@@ -198,13 +199,12 @@ export default function AddEmployeeModal({ isOpen, onClose, onEmployeeAdded }: A
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Salary Type *
+                Salary Type
               </label>
               <select
                 name="salaryType"
                 value={formData.salaryType}
                 onChange={handleChange}
-                required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="FIXED">Fixed</option>
@@ -214,16 +214,16 @@ export default function AddEmployeeModal({ isOpen, onClose, onEmployeeAdded }: A
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Salary Amount *
+                Salary Amount
               </label>
               <input
                 type="number"
                 name="salaryAmount"
                 value={formData.salaryAmount}
                 onChange={handleChange}
-                required
                 step="0.01"
                 min="0"
+                placeholder="Optional"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
               />
             </div>

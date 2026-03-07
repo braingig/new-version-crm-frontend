@@ -183,7 +183,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     <div className="text-sm">
                                         <span className="font-medium text-gray-700 dark:text-gray-300">Time spent: </span>
                                         <span className="text-gray-800 dark:text-gray-100">
-                                            {formatDuration(totalSeconds)}
+                                            {formatDuration(totalSecondsCompleted)}
                                         </span>
                                     </div>
                                 </div>
@@ -242,18 +242,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                                 entry.endTime || entry.startTime
                                             ).toLocaleString();
                                             const who = entry.employee?.name || 'You';
-                                            const durSeconds =
-                                                entry.duration != null
-                                                    ? entry.duration
-                                                    : Math.floor(
-                                                          (new Date(
-                                                              entry.endTime || Date.now()
-                                                          ).getTime() -
-                                                              new Date(
-                                                                  entry.startTime
-                                                              ).getTime()) /
-                                                              1000
-                                                      );
+                                            const durSeconds = entry.duration ?? 0;
                                             return (
                                                 <li
                                                     key={entry.id}

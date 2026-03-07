@@ -219,19 +219,19 @@ export default function ProjectsPage() {
                     {projects.map((project: any) => (
                         <div key={project.id} className="card hover:shadow-lg transition-shadow">
                             <div className="p-6">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
                                         <Link
                                             href={`/dashboard/projects/${project.id}`}
                                             className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline block"
                                         >
                                             {project.name}
                                         </Link>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
+                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 break-words overflow-hidden">
                                             {project.description}
                                         </p>
                                     </div>
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(project.status)}`}>
+                                    <span className={`flex-shrink-0 inline-block px-2 py-1 text-xs font-medium rounded-full outline-none ring-0 border-0 focus:outline-none focus:ring-0 ${getStatusColor(project.status)}`}>
                                         {project.status}
                                     </span>
                                 </div>
@@ -258,20 +258,22 @@ export default function ProjectsPage() {
                                     <div className="flex gap-2 items-center">
                                         <Link
                                             href={`/dashboard/projects/${project.id}`}
-                                            className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                            className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline outline-none focus:outline-none focus:ring-0 rounded"
                                         >
                                             View
                                         </Link>
                                         <button
+                                            type="button"
                                             onClick={(e) => { e.preventDefault(); openEditModal(project); }}
-                                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 outline-none focus:outline-none focus:ring-0"
                                             title="Edit"
                                         >
                                             <PencilIcon className="h-4 w-4" />
                                         </button>
                                         <button
+                                            type="button"
                                             onClick={(e) => { e.preventDefault(); openDeleteConfirm(project); }}
-                                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 outline-none focus:outline-none focus:ring-0"
                                             title="Delete"
                                         >
                                             <TrashIcon className="h-4 w-4" />
@@ -331,7 +333,7 @@ export default function ProjectsPage() {
                                             {formatCurrency(project.budget)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(project.status)}`}>
+                                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full outline-none ring-0 border-0 focus:outline-none focus:ring-0 ${getStatusColor(project.status)}`}>
                                                 {project.status}
                                             </span>
                                         </td>
@@ -346,13 +348,15 @@ export default function ProjectsPage() {
                                                 View
                                             </Link>
                                             <button
-                                                className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3"
+                                                type="button"
+                                                className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3 outline-none focus:outline-none focus:ring-0"
                                                 onClick={() => openEditModal(project)}
                                             >
                                                 <PencilIcon className="h-4 w-4" />
                                             </button>
                                             <button
-                                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                                                type="button"
+                                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 outline-none focus:outline-none focus:ring-0"
                                                 onClick={() => openDeleteConfirm(project)}
                                             >
                                                 <TrashIcon className="h-4 w-4" />
