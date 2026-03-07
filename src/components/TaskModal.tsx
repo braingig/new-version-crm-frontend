@@ -237,26 +237,34 @@ export default function TaskModal({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Assignees (hold Ctrl/Cmd to select multiple)
+                                Assignees
                             </label>
-                            <select
-                                multiple
-                                size={4}
-                                value={formData.assigneeIds}
-                                onChange={(e) => {
-                                    const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-                                    setFormData({
-                                        ...formData,
-                                        assigneeIds: selected,
-                                        assignedToId: selected[0] || '',
-                                    });
-                                }}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            >
+                            <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 space-y-2">
                                 {users.map((user: any) => (
-                                    <option key={user.id} value={user.id}>{user.name}</option>
+                                    <label
+                                        key={user.id}
+                                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 rounded px-2 py-1 -mx-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.assigneeIds.includes(user.id)}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                const nextIds = checked
+                                                    ? [...formData.assigneeIds, user.id]
+                                                    : formData.assigneeIds.filter((id) => id !== user.id);
+                                                setFormData({
+                                                    ...formData,
+                                                    assigneeIds: nextIds,
+                                                    assignedToId: nextIds[0] || '',
+                                                });
+                                            }}
+                                            className="rounded border-gray-300 dark:border-gray-500 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        <span className="text-sm text-gray-900 dark:text-white">{user.name}</span>
+                                    </label>
                                 ))}
-                            </select>
+                            </div>
                             {formData.assigneeIds.length > 0 && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     {formData.assigneeIds.length} selected
