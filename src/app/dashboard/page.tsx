@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@apollo/client';
 import { GET_PROJECTS, GET_TASKS, GET_USERS } from '@/lib/graphql/queries';
-import { useAuth } from '@/lib/store';
+import { useAuthStore } from '@/lib/store';
 import {
     UserGroupIcon,
     FolderIcon,
@@ -34,60 +34,22 @@ function countOpenTasks(tasks: any[]): number {
 }
 
 export default function DashboardPage() {
-    const { user, isAuthenticated, hasHydrated } = useAuth();
+    const user = useAuthStore((state) => state.user);
     const role = user?.role;
     const userId = user?.id;
     const isAdmin = role?.toUpperCase() === 'ADMIN';
 
-    const shouldSkipAll = !hasHydrated || !isAuthenticated;
-
-    const {
-        data: usersData,
-        loading: usersLoading,
-        error: usersError,
-    } = useQuery(GET_USERS, {
-        skip: shouldSkipAll,
-    });
-
-    const {
-        data: projectsData,
-        loading: projectsLoading,
-        error: projectsError,
-    } = useQuery(GET_PROJECTS, {
-        skip: shouldSkipAll,
-    });
-
-    const {
-        data: tasksData,
-        loading: tasksLoading,
-        error: tasksError,
-    } = useQuery(GET_TASKS, {
-        skip: shouldSkipAll,
-    });
-
-    const {
-        data: myTasksData,
-        loading: myTasksLoading,
-        error: myTasksError,
-    } = useQuery(GET_TASKS, {
+    const { data: usersData } = useQuery(GET_USERS);
+    const { data: projectsData } = useQuery(GET_PROJECTS);
+    const { data: tasksData } = useQuery(GET_TASKS);
+    const { data: myTasksData } = useQuery(GET_TASKS, {
         variables: { filters: { assignedToId: userId ?? '' } },
-        skip: shouldSkipAll || !userId || isAdmin,
+        skip: !userId || isAdmin,
     });
-
-    const isLoading =
-        !hasHydrated ||
-        shouldSkipAll ||
-        usersLoading ||
-        projectsLoading ||
-        tasksLoading ||
-        myTasksLoading;
-
-    const anyError = usersError || projectsError || tasksError || myTasksError;
 
     const stats = useMemo(() => {
         const totalEmployees = usersData?.users?.length ?? 0;
-        const activeProjects =
-            projectsData?.projects?.filter((p: any) => p.status === 'ACTIVE').length ?? 0;
+        const activeProjects = projectsData?.projects?.filter((p: any) => p.status === 'ACTIVE').length ?? 0;
         const openTasks = countOpenTasks(tasksData?.tasks ?? []);
         const myTasksOpen = countOpenTasks(myTasksData?.tasks ?? []);
 
@@ -142,49 +104,6 @@ export default function DashboardPage() {
         return baseStats;
     }, [isAdmin, usersData?.users?.length, projectsData?.projects, tasksData?.tasks, myTasksData?.tasks]);
 
-    if (!hasHydrated) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
-            </div>
-        );
-    }
-
-    if (!isAuthenticated) {
-        return null;
-    }
-
-    if (anyError) {
-        return (
-            <div className="p-6">
-                <h1 className="text-2xl font-semibold text-red-600 dark:text-red-400 mb-2">
-                    Something went wrong loading your dashboard.
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Please try refreshing the page. If the issue persists, contact support.
-                </p>
-            </div>
-        );
-    }
-
-    if (isLoading) {
-        return (
-            <div className="p-6">
-                <div className="animate-pulse space-y-4">
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div
-                                key={i}
-                                className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg"
-                            />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     const recentProjects = projectsData?.projects?.slice(0, 5) || [];
     const recentTasks = tasksData?.tasks?.slice(0, 5) || [];
 
@@ -221,6 +140,24 @@ export default function DashboardPage() {
                                 </p>
                             </div>
                         </div>
+                        {stat.change !== '—' && (
+                            <div className="mt-4">
+                                <div
+                                    className={`inline-flex items-baseline rounded-full px-2.5 py-0.5 text-sm font-medium ${
+                                        stat.changeType === 'positive'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                            : stat.changeType === 'negative'
+                                                ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                    }`}
+                                >
+                                    {stat.change}
+                                </div>
+                                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                    from last month
+                                </span>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
