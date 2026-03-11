@@ -29,21 +29,26 @@ export default function TaskModal({
         projectId: '',
         listId: '',
         assignedToId: '',
+        assigneeIds: [] as string[],
         dueDate: '',
         estimatedTime: '',
     });
 
     useEffect(() => {
         if (task) {
+            const ids = task.assignees?.length
+                ? task.assignees.map((a: any) => a.id)
+                : task.assignedToId
+                    ? [task.assignedToId]
+                    : [];
             setFormData({
                 title: task.title || '',
                 description: task.description || '',
                 priority: task.priority || 'MEDIUM',
                 projectId: task.projectId || (task.project?.id ?? ''),
                 listId: task.listId || '',
-                assignedToId:
-                    task.assignedToId ||
-                    (task.assignees && task.assignees.length > 0 ? task.assignees[0].id : ''),
+                assignedToId: task.assignedToId || '',
+                assigneeIds: ids,
                 dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                 estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
             });
@@ -55,6 +60,7 @@ export default function TaskModal({
                 projectId: parentTask.projectId,
                 listId: '',
                 assignedToId: '',
+                assigneeIds: [],
                 dueDate: '',
                 estimatedTime: '',
             });
@@ -66,6 +72,7 @@ export default function TaskModal({
                 projectId: '',
                 listId: '',
                 assignedToId: '',
+                assigneeIds: [],
                 dueDate: '',
                 estimatedTime: '',
             });
@@ -97,6 +104,10 @@ export default function TaskModal({
         };
         if (formData.listId) submitData.listId = formData.listId;
         if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
+        if (formData.assigneeIds?.length) {
+            submitData.assigneeIds = formData.assigneeIds;
+            if (!submitData.assignedToId) submitData.assignedToId = formData.assigneeIds[0];
+        }
         if (formData.dueDate) {
             const dueDate = new Date(formData.dueDate);
             if (!isNaN(dueDate.getTime())) submitData.dueDate = dueDate;
@@ -107,8 +118,8 @@ export default function TaskModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center md:items-center z-50 px-3 py-6 md:px-0 md:py-0 overflow-y-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl my-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {task?.id ? 'Edit Task' : parentTask ? 'Add Subtask' : 'Create New Task'}
@@ -226,20 +237,39 @@ export default function TaskModal({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Assignee
+                                Assignees
                             </label>
-                            <select
-                                value={formData.assignedToId}
-                                onChange={(e) => setFormData({ ...formData, assignedToId: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            >
-                                <option value="">Unassigned</option>
+                            <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 space-y-2">
                                 {users.map((user: any) => (
-                                    <option key={user.id} value={user.id}>
-                                        {user.name}
-                                    </option>
+                                    <label
+                                        key={user.id}
+                                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 rounded px-2 py-1 -mx-2"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.assigneeIds.includes(user.id)}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                const nextIds = checked
+                                                    ? [...formData.assigneeIds, user.id]
+                                                    : formData.assigneeIds.filter((id) => id !== user.id);
+                                                setFormData({
+                                                    ...formData,
+                                                    assigneeIds: nextIds,
+                                                    assignedToId: nextIds[0] || '',
+                                                });
+                                            }}
+                                            className="rounded border-gray-300 dark:border-gray-500 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        <span className="text-sm text-gray-900 dark:text-white">{user.name}</span>
+                                    </label>
                                 ))}
-                            </select>
+                            </div>
+                            {formData.assigneeIds.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {formData.assigneeIds.length} selected
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
