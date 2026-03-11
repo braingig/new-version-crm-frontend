@@ -631,6 +631,12 @@ export const UPDATE_USER = gql`
   }
 `;
 
+export const CHANGE_USER_PASSWORD = gql`
+  mutation ChangeUserPassword($id: String!, $newPassword: String!) {
+    changeUserPassword(id: $id, newPassword: $newPassword)
+  }
+`;
+
 export const DELETE_USER = gql`
   mutation DeleteUser($id: String!) {
     deleteUser(id: $id)
