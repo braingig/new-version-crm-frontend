@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     title: 'Remote Team Management',
     description: 'Comprehensive remote team and project management system',
 }
+export const dynamic = "force-dynamic";
 
 export default function RootLayout({
     children,
