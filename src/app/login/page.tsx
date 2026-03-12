@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { LOGIN_MUTATION } from '@/lib/graphql/queries';
 import { useAuthStore } from '@/lib/store';
 
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
     const router = useRouter();
     const setAuth = useAuthStore((state) => state.setAuth);
