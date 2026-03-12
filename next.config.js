@@ -2,6 +2,10 @@
 const nextConfig = {
     reactStrictMode: true,
     swcMinify: true,
+    generateBuildId: async () => {
+        return `${Date.now()}`
+    },
+
     async headers() {
         return [
           {
