@@ -425,6 +425,25 @@ export default function TaskDetailsPage() {
 
     const hasParent = task.parentTask != null;
 
+    const projectName = task.project?.name;
+    const projectId = task.project?.id ?? task.projectId;
+    const projectTasksUrl = projectId
+        ? `/dashboard/tasks?projectId=${projectId}`
+        : '/dashboard/tasks';
+
+    const listName = task.listId
+        ? taskLists.find((l: any) => l.id === task.listId)?.name ?? 'List'
+        : 'No list (unassigned)';
+
+    const listUrl =
+        task.listId
+            ? projectId
+                ? `/dashboard/tasks?projectId=${projectId}&listId=${task.listId}`
+                : `/dashboard/tasks?listId=${task.listId}`
+            : projectId
+                ? `/dashboard/tasks?projectId=${projectId}&listId=unassigned`
+                : '/dashboard/tasks?listId=unassigned';
+
     const dueDate = task.dueDate ? new Date(task.dueDate) : null;
     const todayStartOfDay = startOfDay(new Date());
     const isOverdue =
@@ -437,38 +456,49 @@ export default function TaskDetailsPage() {
 
     return (
         <div className="">
-            {/* Hierarchy-aware navigation */}
+            {/* Hierarchy-aware breadcrumb: Tasks → Project → List → (Parent) → Task */}
             <div className="mb-6 flex flex-col gap-2">
-                {hasParent ? (
-                    /* Breadcrumb only: Tasks > Parent > Current – click any segment to go there */
-                    <nav className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400" aria-label="Breadcrumb">
-                        <Link
-                            href="/dashboard/tasks"
-                            className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-                        >
-                            Tasks
-                        </Link>
-                        <span aria-hidden="true">/</span>
-                        <Link
-                            href={`/dashboard/tasks/${task.parentTask!.id}`}
-                            className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors font-medium"
-                        >
-                            {task.parentTask!.title}
-                        </Link>
-                        <span aria-hidden="true">/</span>
-                        <span className="text-gray-900 dark:text-white font-medium" aria-current="page">
-                            {task.title}
-                        </span>
-                    </nav>
-                ) : (
+                <nav
+                    className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400"
+                    aria-label="Breadcrumb"
+                >
                     <Link
-                        href="/dashboard/tasks"
-                        className="inline-flex items-center text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                        href={projectTasksUrl}
+                        className="inline-flex items-center gap-1 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
                     >
-                        <ArrowLeftIcon className="h-4 w-4 mr-2" />
-                        Back to Tasks
+                        <ArrowLeftIcon className="h-4 w-4" />
+                        <span>Tasks</span>
                     </Link>
-                )}
+
+                    {listName && (
+                        <>
+                            <span aria-hidden="true">/</span>
+                            <Link
+                                href={listUrl}
+                                className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                            >
+                                {listName}
+                            </Link>
+                        </>
+                    )}
+
+                    {hasParent && (
+                        <>
+                            <span aria-hidden="true">/</span>
+                            <Link
+                                href={`/dashboard/tasks/${task.parentTask!.id}`}
+                                className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors font-medium"
+                            >
+                                {task.parentTask!.title}
+                            </Link>
+                        </>
+                    )}
+
+                    <span aria-hidden="true">/</span>
+                    <span className="text-gray-900 dark:text-white font-medium" aria-current="page">
+                        {task.title}
+                    </span>
+                </nav>
             </div>
 
             {/* Header card */}

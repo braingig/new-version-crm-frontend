@@ -550,15 +550,39 @@ export default function TasksPage() {
     const users = usersData?.users || [];
     const taskLists = listsData?.taskLists || [];
 
-    // Initialize selected project from URL (?projectId=) or first project when available
+    // Initialize selected project / list from URL (?projectId=, ?listId=) or fallbacks.
+    // IMPORTANT: This should only run when there is no existing user selection,
+    // so we don't override manual changes from the UI.
     const projectIdFromUrl = searchParams.get('projectId');
+    const listIdFromUrl = searchParams.get('listId');
+
     useEffect(() => {
+        // If user has already chosen a project, don't override it from the URL.
+        if (selectedProjectId) return;
+
         if (projectIdFromUrl && projects.some((p: any) => p.id === projectIdFromUrl)) {
             setSelectedProjectId(projectIdFromUrl);
-        } else if (!selectedProjectId && projects.length > 0) {
+        } else if (projects.length > 0) {
             setSelectedProjectId(projects[0].id);
         }
-    }, [projects, selectedProjectId, projectIdFromUrl]);
+    }, [projects, projectIdFromUrl, selectedProjectId]);
+
+    // When lists are loaded for the selected project, honor ?listId= from URL if valid.
+    // Again, don't override if the user has already picked a list.
+    useEffect(() => {
+        if (!selectedProjectId) return;
+        if (!listIdFromUrl) return;
+        if (selectedListId) return;
+
+        if (listIdFromUrl === 'unassigned') {
+            setSelectedListId('unassigned');
+            return;
+        }
+
+        if (taskLists.length > 0 && taskLists.some((l: any) => l.id === listIdFromUrl)) {
+            setSelectedListId(listIdFromUrl);
+        }
+    }, [selectedProjectId, taskLists, listIdFromUrl, selectedListId]);
 
     // When project has no lists or selected list is not in current project, clear selection so "Add Task" is never shown
     // Keep 'unassigned' selected if user is viewing tasks with no list
