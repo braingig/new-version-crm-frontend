@@ -686,3 +686,39 @@ export const REPORT_ACTIVITY = gql`
     reportActivity(type: $type, metadata: $metadata)
   }
 `;
+
+export const GET_NOTIFICATIONS = gql`
+  query GetNotifications {
+    notifications {
+      id
+      userId
+      title
+      message
+      type
+      isRead
+      link
+      createdAt
+    }
+  }
+`;
+
+export const GET_NOTIFICATION_UNREAD_COUNT = gql`
+  query GetNotificationUnreadCount {
+    notificationUnreadCount
+  }
+`;
+
+export const MARK_NOTIFICATION_AS_READ = gql`
+  mutation MarkNotificationAsRead($id: String!) {
+    markNotificationAsRead(id: $id) {
+      id
+      isRead
+    }
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_AS_READ = gql`
+  mutation MarkAllNotificationsAsRead {
+    markAllNotificationsAsRead
+  }
+`;
