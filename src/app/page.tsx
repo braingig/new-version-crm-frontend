@@ -9,6 +9,7 @@ export default function Home() {
     const { isAuthenticated, hasHydrated } = useAuth();
 
     useEffect(() => {
+        console.log("hasHydrated: ", hasHydrated);
         if (hasHydrated) {
             if (isAuthenticated) {
                 router.push('/dashboard');
