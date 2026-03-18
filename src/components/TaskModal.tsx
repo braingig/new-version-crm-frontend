@@ -25,6 +25,7 @@ export default function TaskModal({
     const [formData, setFormData] = useState({
         title: '',
         description: '',
+        note: '',
         priority: 'MEDIUM',
         projectId: '',
         listId: '',
@@ -44,6 +45,7 @@ export default function TaskModal({
             setFormData({
                 title: task.title || '',
                 description: task.description || '',
+                note: task.note || '',
                 priority: task.priority || 'MEDIUM',
                 projectId: task.projectId || (task.project?.id ?? ''),
                 listId: task.listId || '',
@@ -56,6 +58,7 @@ export default function TaskModal({
             setFormData({
                 title: '',
                 description: '',
+                note: '',
                 priority: 'MEDIUM',
                 projectId: parentTask.projectId,
                 listId: '',
@@ -68,6 +71,7 @@ export default function TaskModal({
             setFormData({
                 title: '',
                 description: '',
+                note: '',
                 priority: 'MEDIUM',
                 projectId: '',
                 listId: '',
@@ -98,6 +102,7 @@ export default function TaskModal({
         const submitData: any = {
             title: formData.title.trim(),
             description: formData.description.trim() || undefined,
+            note: formData.note.trim() || undefined,
             priority: formData.priority,
             projectId: formData.projectId || parentTask?.projectId,
             estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
@@ -145,6 +150,16 @@ export default function TaskModal({
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note</label>
+                        <textarea
+                            value={formData.note}
+                            onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                            rows={2}
+                            placeholder="Quick note or reminder..."
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
                     </div>

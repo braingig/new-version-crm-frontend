@@ -131,6 +131,7 @@ export const GET_TASKS = gql`
       id
       title
       description
+      note
       status
       priority
       projectId
@@ -151,6 +152,7 @@ export const GET_TASKS = gql`
         id
         title
         description
+        note
         status
         priority
         projectId
@@ -255,6 +257,7 @@ export const GET_TASK = gql`
       id
       title
       description
+      note
       status
       priority
       projectId
@@ -275,6 +278,7 @@ export const GET_TASK_DETAILS = gql`
       id
       title
       description
+      note
       status
       priority
       projectId
@@ -314,6 +318,7 @@ export const GET_TASK_DETAILS = gql`
         id
         title
         description
+        note
         status
         priority
         dueDate
@@ -345,6 +350,7 @@ export const CREATE_TASK = gql`
       id
       title
       description
+      note
       status
       priority
       projectId
@@ -385,6 +391,7 @@ export const UPDATE_TASK = gql`
       id
       title
       description
+      note
       status
       priority
       projectId

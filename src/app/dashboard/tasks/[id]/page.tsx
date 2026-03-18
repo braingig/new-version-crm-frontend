@@ -596,6 +596,17 @@ export default function TaskDetailsPage() {
                             </p>
                         </div>
                     )}
+                    {task.note && (
+                        <div className="card">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <PencilIcon className="h-5 w-5 text-primary-600" />
+                                Note
+                            </h2>
+                            <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                                {task.note}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Subtasks */}
                     {task.subTasks && task.subTasks.length > 0 && (

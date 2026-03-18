@@ -149,6 +149,16 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     </p>
                                 </div>
                             )}
+                            {task.note && (
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                                        Note
+                                    </h3>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                        {task.note}
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
