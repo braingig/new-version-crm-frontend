@@ -9,7 +9,6 @@ export default function Home() {
     const { isAuthenticated, hasHydrated } = useAuth();
 
     useEffect(() => {
-        console.log("hasHydrated: ", hasHydrated);
         if (hasHydrated) {
             if (isAuthenticated) {
                 router.push('/dashboard');
@@ -22,8 +21,6 @@ export default function Home() {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            <button onClick={() => router.push('/dashboard')}>Dashboard</button>
-            <button onClick={() => router.push('/login')}>Login</button>
         </div>
     );
 }
