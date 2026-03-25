@@ -75,6 +75,7 @@ export const GET_PROJECTS = gql`
       id
       name
       description
+      note
       budget
       hourlyRate
       status
@@ -96,6 +97,7 @@ export const GET_PROJECT = gql`
       id
       name
       description
+      note
       budget
       hourlyRate
       status

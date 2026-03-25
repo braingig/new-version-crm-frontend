@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@apollo/client';
+import { useState } from 'react';
 import { GET_PROJECT, GET_TASKS, GET_TASK_LISTS } from '@/lib/graphql/queries';
 import {
     ArrowLeftIcon,
@@ -13,7 +14,9 @@ import {
     UserCircleIcon,
     ClipboardDocumentListIcon,
     Squares2X2Icon,
+    PencilIcon,
 } from '@heroicons/react/24/outline';
+import EditProjectModal from '@/components/EditProjectModal';
 
 const statusColors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
@@ -27,7 +30,9 @@ export default function ProjectDetailsPage() {
     const params = useParams();
     const projectId = params?.id as string;
 
-    const { data, loading, error } = useQuery(GET_PROJECT, {
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const { data, loading, error, refetch } = useQuery(GET_PROJECT, {
         variables: { id: projectId },
         skip: !projectId,
     });
@@ -116,6 +121,17 @@ export default function ProjectDetailsPage() {
                             </span>
                         </div>
                     </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="p-2 rounded-lg text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                            title="Edit project"
+                        >
+                            <PencilIcon className="h-5 w-5" />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -128,6 +144,18 @@ export default function ProjectDetailsPage() {
                             </h2>
                             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                                 {project.description}
+                            </p>
+                        </div>
+                    )}
+
+                    {project.note && (
+                        <div className="card">
+                            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                <PencilIcon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                                Note
+                            </h2>
+                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                {project.note}
                             </p>
                         </div>
                     )}
@@ -235,6 +263,13 @@ export default function ProjectDetailsPage() {
                     )}
                 </div>
             </div>
+
+            <EditProjectModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                onProjectUpdated={() => refetch()}
+                project={project}
+            />
         </div>
     );
 }

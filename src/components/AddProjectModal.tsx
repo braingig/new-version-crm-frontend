@@ -14,6 +14,7 @@ interface AddProjectModalProps {
 interface FormData {
   name: string;
   description: string;
+  note: string;
   budget: string;
   hourlyRate: string;
   status: string;
@@ -26,6 +27,7 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
+    note: '',
     budget: '',
     hourlyRate: '',
     status: 'PLANNING',
@@ -45,6 +47,7 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
           input: {
             name: formData.name,
             description: formData.description,
+            note: formData.note || undefined,
             budget: formData.budget ? parseFloat(formData.budget) : undefined,
             hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined,
             status: formData.status,
@@ -59,6 +62,7 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
       setFormData({
         name: '',
         description: '',
+        note: '',
         budget: '',
         hourlyRate: '',
         status: 'PLANNING',
@@ -228,7 +232,20 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
               />
             </div>
 
-            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Note
+              </label>
+              <textarea
+                name="note"
+                value={formData.note}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Add any extra context for this project..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

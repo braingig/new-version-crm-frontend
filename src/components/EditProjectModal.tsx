@@ -15,6 +15,7 @@ interface EditProjectModalProps {
 interface FormData {
   name: string;
   description: string;
+  note: string;
   budget: string;
   hourlyRate: string;
   status: string;
@@ -27,6 +28,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
+    note: '',
     budget: '',
     hourlyRate: '',
     status: 'PLANNING',
@@ -42,6 +44,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
       setFormData({
         name: project.name || '',
         description: project.description || '',
+        note: project.note || '',
         budget: project.budget?.toString() || '',
         hourlyRate: project.hourlyRate?.toString() || '',
         status: project.status || 'PLANNING',
@@ -64,6 +67,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
           input: {
             name: formData.name,
             description: formData.description,
+            note: formData.note || undefined,
             budget: parseFloat(formData.budget),
             hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined,
             status: formData.status,
@@ -239,7 +243,20 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
               />
             </div>
 
-            
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Note
+              </label>
+              <textarea
+                name="note"
+                value={formData.note}
+                onChange={handleChange}
+                rows={3}
+                placeholder="Add any extra context for this project..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
