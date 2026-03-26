@@ -109,7 +109,13 @@ export default function TaskModal({
         };
         if (formData.listId) submitData.listId = formData.listId;
         if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
-        if (formData.assigneeIds?.length) {
+        if (task?.id) {
+            // On edit, always send assigneeIds so [] can explicitly clear assignments.
+            submitData.assigneeIds = formData.assigneeIds;
+            if (formData.assigneeIds.length > 0 && !submitData.assignedToId) {
+                submitData.assignedToId = formData.assigneeIds[0];
+            }
+        } else if (formData.assigneeIds?.length) {
             submitData.assigneeIds = formData.assigneeIds;
             if (!submitData.assignedToId) submitData.assignedToId = formData.assigneeIds[0];
         }

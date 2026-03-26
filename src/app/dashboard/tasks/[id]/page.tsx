@@ -1031,7 +1031,7 @@ export default function TaskDetailsPage() {
                                     </div>
                                 </div>
                             )}
-                            {task.createdBy && (
+                            {task.createdBy && (task.assignees?.length || task.assignedTo) && (
                                 <div className="flex items-center gap-2">
                                     <UserCircleIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                                     <div>
