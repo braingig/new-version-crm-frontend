@@ -1069,6 +1069,9 @@ export default function TasksPage() {
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Owner
                                             </th>
+                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Actions
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -1094,6 +1097,32 @@ export default function TasksPage() {
                                                     <td className="px-4 py-2 text-sm text-gray-400">
                                                         —{/* placeholder owner */}
                                                     </td>
+                                                    <td className="px-4 py-2 text-right">
+                                                        <div className="inline-flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleEditList(list);
+                                                                }}
+                                                                className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                                                            >
+                                                                <PencilIcon className="h-3.5 w-3.5 mr-1" />
+                                                                Edit
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteList(list);
+                                                                }}
+                                                                className="inline-flex items-center rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                                                            >
+                                                                <TrashIcon className="h-3.5 w-3.5 mr-1" />
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
@@ -1114,13 +1143,14 @@ export default function TasksPage() {
                                                 <td className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">
                                                     Assign via Edit
                                                 </td>
+                                                <td className="px-4 py-2" />
                                             </tr>
                                         )}
                                         {taskLists.length === 0 && (
                                             <tr>
                                                 <td
                                                     className="px-4 py-6 text-center"
-                                                    colSpan={4}
+                                                    colSpan={5}
                                                 >
                                                     <p className="text-sm text-gray-600 dark:text-gray-400">
                                                         No lists yet. Tasks can only be created inside a list.
