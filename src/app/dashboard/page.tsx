@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@apollo/client';
 import { GET_PROJECTS, GET_TASKS, GET_USERS } from '@/lib/graphql/queries';
@@ -23,6 +23,9 @@ interface StatItem {
     hint?: string;
 }
 
+type DashboardViewMode = 'mine' | 'all';
+const DASHBOARD_VIEW_MODE_KEY = 'dashboard:viewMode';
+
 function countOpenTasks(tasks: any[]): number {
     return tasks.reduce(
         (sum, t) =>
@@ -38,20 +41,59 @@ export default function DashboardPage() {
     const role = user?.role;
     const userId = user?.id;
     const isAdmin = role?.toUpperCase() === 'ADMIN';
+    const [viewMode, setViewMode] = useState<DashboardViewMode>('mine');
+
+    useEffect(() => {
+        try {
+            const saved = window.localStorage.getItem(DASHBOARD_VIEW_MODE_KEY);
+            if (saved === 'mine' || saved === 'all') {
+                setViewMode(saved);
+            }
+        } catch {
+            // Ignore storage access issues (private mode / blocked storage).
+        }
+    }, []);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(DASHBOARD_VIEW_MODE_KEY, viewMode);
+        } catch {
+            // Ignore storage access issues (private mode / blocked storage).
+        }
+    }, [viewMode]);
 
     const { data: usersData } = useQuery(GET_USERS);
     const { data: projectsData } = useQuery(GET_PROJECTS);
     const { data: tasksData } = useQuery(GET_TASKS);
     const { data: myTasksData } = useQuery(GET_TASKS, {
         variables: { filters: { assignedToId: userId ?? '' } },
-        skip: !userId || isAdmin,
+        skip: !userId,
     });
+
+    const allProjects = projectsData?.projects ?? [];
+    const allTasks = tasksData?.tasks ?? [];
+    const myTasks = myTasksData?.tasks ?? [];
+
+    const myProjectIds = useMemo(() => {
+        return new Set(
+            (myTasks ?? [])
+                .map((task: any) => task.projectId || task.project?.id)
+                .filter(Boolean)
+        );
+    }, [myTasks]);
+
+    const visibleProjects = useMemo(() => {
+        if (viewMode === 'all') return allProjects;
+        return allProjects.filter((project: any) => myProjectIds.has(project.id));
+    }, [viewMode, allProjects, myProjectIds]);
+
+    const visibleTasks = viewMode === 'all' ? allTasks : myTasks;
+    const hasNoAssignedItems = viewMode === 'mine' && visibleProjects.length === 0 && visibleTasks.length === 0;
 
     const stats = useMemo(() => {
         const totalEmployees = usersData?.users?.length ?? 0;
-        const activeProjects = projectsData?.projects?.filter((p: any) => p.status === 'ACTIVE').length ?? 0;
-        const openTasks = countOpenTasks(tasksData?.tasks ?? []);
-        const myTasksOpen = countOpenTasks(myTasksData?.tasks ?? []);
+        const activeProjects = visibleProjects.filter((p: any) => p.status === 'ACTIVE').length;
+        const openTasks = countOpenTasks(visibleTasks);
 
         const baseStats: StatItem[] = [];
 
@@ -65,31 +107,42 @@ export default function DashboardPage() {
             });
         } else {
             baseStats.push({
-                name: 'Tasks assigned to me',
-                value: String(myTasksOpen),
+                name: viewMode === 'mine' ? 'Assigned to me' : 'Open tasks',
+                value: String(openTasks),
                 icon: UserGroupIcon,
                 change: '—',
                 changeType: 'neutral',
+                hint: viewMode === 'mine' ? 'Tasks currently assigned to you' : undefined,
             });
         }
 
-        baseStats.push(
-            {
-                name: 'Active Projects',
-                value: String(activeProjects),
-                icon: FolderIcon,
-                change: '—',
-                changeType: 'neutral',
-            },
-            {
+        baseStats.push({
+            name: 'Active Projects',
+            value: String(activeProjects),
+            icon: FolderIcon,
+            change: '—',
+            changeType: 'neutral',
+        });
+
+        if (isAdmin) {
+            baseStats.push({
                 name: 'Open Tasks',
                 value: String(openTasks),
                 icon: ClockIcon,
                 change: '—',
                 changeType: 'neutral',
                 hint: 'To do, In progress, Review',
-            }
-        );
+            });
+        } else {
+            baseStats.push({
+                name: 'Projects in scope',
+                value: String(visibleProjects.length),
+                icon: ClockIcon,
+                change: '—',
+                changeType: 'neutral',
+                hint: viewMode === 'mine' ? 'Projects with your assigned tasks' : 'All visible projects',
+            });
+        }
 
         if (isAdmin) {
             baseStats.push({
@@ -102,19 +155,53 @@ export default function DashboardPage() {
         }
 
         return baseStats;
-    }, [isAdmin, usersData?.users?.length, projectsData?.projects, tasksData?.tasks, myTasksData?.tasks]);
+    }, [isAdmin, usersData?.users?.length, visibleProjects, visibleTasks, viewMode]);
 
-    const recentProjects = projectsData?.projects?.slice(0, 5) || [];
-    const recentTasks = tasksData?.tasks?.slice(0, 5) || [];
+    const recentProjects = visibleProjects.slice(0, 5);
+    const recentTasks = visibleTasks.slice(0, 5);
 
     return (
         <div>
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Overview of your team's performance and activities
-                </p>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Overview of your projects and tasks
+                        </p>
+                    </div>
+                    <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('mine')}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                viewMode === 'mine'
+                                    ? 'bg-primary-600 text-white'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            Assigned to me
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('all')}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                viewMode === 'all'
+                                    ? 'bg-primary-600 text-white'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            Team view
+                        </button>
+                    </div>
+                </div>
             </div>
+
+            {hasNoAssignedItems && (
+                <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
+                    No tasks or projects are currently assigned to you. Switch to <span className="font-semibold">Team view</span> to view everything.
+                </div>
+            )}
 
             {/* Stats */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -167,7 +254,7 @@ export default function DashboardPage() {
                 {/* Recent Projects */}
                 <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Recent Projects
+                        {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
                     </h2>
                     <div className="space-y-3">
                         {recentProjects.length > 0 ? (
@@ -197,7 +284,7 @@ export default function DashboardPage() {
                             ))
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                                No projects yet
+                                {viewMode === 'mine' ? 'No projects assigned to you' : 'No projects yet'}
                             </p>
                         )}
                     </div>
@@ -206,7 +293,7 @@ export default function DashboardPage() {
                 {/* Recent Tasks */}
                 <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Recent Tasks
+                        {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
                     </h2>
                     <div className="space-y-3">
                         {recentTasks.length > 0 ? (
@@ -238,7 +325,7 @@ export default function DashboardPage() {
                             ))
                         ) : (
                             <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                                No tasks yet
+                                {viewMode === 'mine' ? 'No tasks assigned to you' : 'No tasks yet'}
                             </p>
                         )}
                     </div>
