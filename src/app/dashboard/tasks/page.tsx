@@ -823,7 +823,7 @@ export default function TasksPage() {
     };
 
     const handleDeleteList = async (list: any) => {
-        if (!window.confirm('Delete this list? Tasks will remain but without a list.')) return;
+        if (!window.confirm('Delete this list? All tasks in this list will also be deleted.')) return;
         try {
             await deleteTaskListMutation({
                 variables: { id: list.id },
@@ -958,13 +958,15 @@ export default function TasksPage() {
                                     </span>
                                 )}
                             </button>
-                            <button
-                                onClick={handleCreateList}
-                                className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
-                            >
-                                <PlusIcon className="h-4 w-4 mr-2" />
-                                Add List
-                            </button>
+                            {!selectedListId && (
+                                <button
+                                    onClick={handleCreateList}
+                                    className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-2" />
+                                    Add List
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
