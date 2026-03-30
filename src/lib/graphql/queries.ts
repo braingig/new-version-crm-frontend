@@ -739,6 +739,7 @@ export const GET_MY_WEEKLY_WORK_PLAN_FOR_DATE = gql`
       userId
       weekStart
       weekendDays
+      updatedAt
       slots {
         id
         dayOfWeek
@@ -762,6 +763,7 @@ export const GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE = gql`
         userId
         weekStart
         weekendDays
+        updatedAt
         slots {
           id
           dayOfWeek
@@ -780,6 +782,7 @@ export const SET_WEEKLY_WORK_PLAN = gql`
       userId
       weekStart
       weekendDays
+      updatedAt
       slots {
         id
         dayOfWeek

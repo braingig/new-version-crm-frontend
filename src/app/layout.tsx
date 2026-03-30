@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ApolloProvider } from '@/lib/apollo-client'
 import SessionExpiryHandler from '@/components/SessionExpiryHandler'
+import { ToastProvider } from '@/components/ToastProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,8 +21,10 @@ export default function RootLayout({
         <html lang="en">
             <body className={inter.className}>
                 <ApolloProvider>
-                    <SessionExpiryHandler />
-                    {children}
+                    <ToastProvider>
+                        <SessionExpiryHandler />
+                        {children}
+                    </ToastProvider>
                 </ApolloProvider>
             </body>
         </html>

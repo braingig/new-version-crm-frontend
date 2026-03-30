@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
+import { client } from '@/lib/apollo-client';
 import {
     GET_MY_WEEKLY_WORK_PLAN_FOR_DATE,
     GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/graphql/queries';
 import { useAuthStore } from '@/lib/store';
 import { canViewTeamWorkSchedule } from '@/lib/permissions';
+import { useToast } from '@/components/ToastProvider';
 import {
     CalendarDaysIcon,
     ChevronLeftIcon,
@@ -93,6 +95,60 @@ function formatMinutesLabel(m: number): string {
     return mi ? `${h12}:${String(mi).padStart(2, '0')} ${ap}` : `${h12} ${ap}`;
 }
 
+function formatHoursFromMinutes(totalMinutes: number): string {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    if (h <= 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+}
+
+function startOfLocalDay(d: Date): Date {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function isPlanActiveNow(
+    plan: {
+        weekStart: string;
+        weekendDays: number[];
+        slots: { dayOfWeek: number; startMinutes: number; endMinutes: number }[];
+    },
+    now: Date,
+): boolean {
+    const planWeekStart = new Date(plan.weekStart);
+    const planWeekStartLocal = new Date(
+        planWeekStart.getUTCFullYear(),
+        planWeekStart.getUTCMonth(),
+        planWeekStart.getUTCDate(),
+    );
+    const todayStart = startOfLocalDay(now);
+    const weekEnd = addDays(planWeekStartLocal, 6);
+    if (todayStart < planWeekStartLocal || todayStart > weekEnd) return false;
+
+    const idx = Math.round(
+        (todayStart.getTime() - planWeekStartLocal.getTime()) / (24 * 60 * 60 * 1000),
+    );
+    if (idx < 0 || idx > 6) return false;
+
+    let startDay = 1;
+    try {
+        startDay = computeWorkWeekStartDay(plan.weekendDays ?? []);
+    } catch {
+        startDay = 1;
+    }
+    const dayOrder = Array.from({ length: 7 }, (_, i) => ((startDay - 1 + i) % 7) + 1);
+    const iso = dayOrder[idx];
+    if ((plan.weekendDays ?? []).includes(iso)) return false;
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const daySlots = (plan.slots ?? []).filter((s) => s.dayOfWeek === iso);
+    if (daySlots.length === 0) return false;
+
+    return daySlots.some(
+        (s) => nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes,
+    );
+}
+
 type DraftSlot = {
     key: string;
     dayOfWeek: number;
@@ -101,6 +157,7 @@ type DraftSlot = {
 };
 
 export default function WorkSchedulePage() {
+    const { showToast } = useToast();
     const role = useAuthStore((s) => s.user?.role);
     const userName = useAuthStore((s) => s.user?.name);
     const showTeam = canViewTeamWorkSchedule(role);
@@ -120,18 +177,40 @@ export default function WorkSchedulePage() {
     const [saveError, setSaveError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [weekStartDayError, setWeekStartDayError] = useState<string | null>(null);
+    const [teamFilter, setTeamFilter] = useState<'all' | 'active' | 'inactive'>(
+        'all',
+    );
+    const [isWeekTransitioning, setIsWeekTransitioning] = useState(false);
+    /** Re-render periodically so team Active/Inactive updates with the clock. */
+    const [liveStatusTick, setLiveStatusTick] = useState(0);
+    useEffect(() => {
+        const id = window.setInterval(() => setLiveStatusTick((n) => n + 1), 30_000);
+        return () => window.clearInterval(id);
+    }, []);
 
-    const { data: myData, loading: myLoading, refetch: refetchMy } = useQuery(GET_MY_WEEKLY_WORK_PLAN_FOR_DATE, {
+    const {
+        data: myData,
+        loading: myLoading,
+        networkStatus: myNetworkStatus,
+        refetch: refetchMy,
+    } = useQuery(GET_MY_WEEKLY_WORK_PLAN_FOR_DATE, {
         variables: { referenceDate: referenceDateIso },
         fetchPolicy: 'network-only',
+        notifyOnNetworkStatusChange: true,
     });
 
-    const { data: teamData, loading: teamLoading, refetch: refetchTeam } = useQuery(
+    const {
+        data: teamData,
+        loading: teamLoading,
+        networkStatus: teamNetworkStatus,
+        refetch: refetchTeam,
+    } = useQuery(
         GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE,
         {
             variables: { referenceDate: referenceDateIso },
             skip: !showTeam,
             fetchPolicy: 'network-only',
+            notifyOnNetworkStatusChange: true,
         },
     );
 
@@ -139,6 +218,84 @@ export default function WorkSchedulePage() {
     const [deletePlan, { loading: deleting }] = useMutation(DELETE_WEEKLY_WORK_PLAN);
 
     const myPlan = myData?.myWeeklyWorkPlanForDate ?? null;
+    const teamRows =
+        (teamData?.teamWeeklyScheduleForDate as
+            | Array<{
+                  user: { id: string; name: string; email: string };
+                  plan: {
+                      weekStart: string;
+                      weekendDays: number[];
+                      slots: {
+                          id: string;
+                          dayOfWeek: number;
+                          startMinutes: number;
+                          endMinutes: number;
+                      }[];
+                  } | null;
+              }>
+            | undefined) ?? [];
+
+    const isDirty = useMemo(() => {
+        const loadedWeekend = [...(myPlan?.weekendDays ?? [6, 7])].sort((a, b) => a - b);
+        const currentWeekend = [...weekendDays].sort((a, b) => a - b);
+        const weekendChanged =
+            loadedWeekend.length !== currentWeekend.length ||
+            loadedWeekend.some((v, i) => v !== currentWeekend[i]);
+
+        const loadedSlots = (myPlan?.slots ?? [])
+            .map((s: any) => ({
+                dayOfWeek: s.dayOfWeek,
+                startMinutes: s.startMinutes,
+                endMinutes: s.endMinutes,
+            }))
+            .sort((a: any, b: any) =>
+                a.dayOfWeek !== b.dayOfWeek
+                    ? a.dayOfWeek - b.dayOfWeek
+                    : a.startMinutes - b.startMinutes,
+            );
+
+        const currentSlots = draftSlots
+            .map((s) => ({
+                dayOfWeek: s.dayOfWeek,
+                startMinutes: s.startMinutes,
+                endMinutes: s.endMinutes,
+            }))
+            .sort((a, b) =>
+                a.dayOfWeek !== b.dayOfWeek ? a.dayOfWeek - b.dayOfWeek : a.startMinutes - b.startMinutes,
+            );
+
+        const slotsChanged =
+            loadedSlots.length !== currentSlots.length ||
+            loadedSlots.some((s: any, i: number) => {
+                const c = currentSlots[i];
+                return (
+                    !c ||
+                    s.dayOfWeek !== c.dayOfWeek ||
+                    s.startMinutes !== c.startMinutes ||
+                    s.endMinutes !== c.endMinutes
+                );
+            });
+
+        return weekendChanged || slotsChanged;
+    }, [myPlan, weekendDays, draftSlots]);
+
+    const activeUserCount = useMemo(() => {
+        const now = new Date();
+        return teamRows.filter((r) => r.plan && isPlanActiveNow(r.plan, now)).length;
+    }, [teamRows, liveStatusTick]);
+    const inactiveUserCount = useMemo(
+        () => teamRows.length - activeUserCount,
+        [teamRows.length, activeUserCount],
+    );
+
+    const filteredTeamRows = useMemo(() => {
+        const now = new Date();
+        if (teamFilter === 'active')
+            return teamRows.filter((r) => r.plan && isPlanActiveNow(r.plan, now));
+        if (teamFilter === 'inactive')
+            return teamRows.filter((r) => !r.plan || !isPlanActiveNow(r.plan, now));
+        return teamRows;
+    }, [teamRows, teamFilter, liveStatusTick]);
     const weekendMatchesLoaded = useMemo(() => {
         if (!myPlan) return false;
         const loaded = [...(myPlan.weekendDays ?? [])].sort((a, b) => a - b);
@@ -147,8 +304,15 @@ export default function WorkSchedulePage() {
         return loaded.every((v, i) => v === current[i]);
     }, [myPlan, weekendDays]);
 
+    const isMyFetching =
+        myNetworkStatus === 1 /* loading */ ||
+        myNetworkStatus === 2 /* setVariables */ ||
+        myNetworkStatus === 4 /* refetch */;
+    const isTeamFetching =
+        teamNetworkStatus === 1 || teamNetworkStatus === 2 || teamNetworkStatus === 4;
+
     useEffect(() => {
-        if (myLoading) return;
+        if (myLoading && !myPlan) return;
         if (!myPlan) {
             setWeekendDays([6, 7]);
             setDraftSlots([]);
@@ -168,6 +332,12 @@ export default function WorkSchedulePage() {
             })),
         );
     }, [myLoading, referenceDateIso, myPlan]);
+
+    useEffect(() => {
+        if (!isWeekTransitioning) return;
+        const t = window.setTimeout(() => setIsWeekTransitioning(false), 220);
+        return () => window.clearTimeout(t);
+    }, [isWeekTransitioning]);
 
     const toggleWeekend = useCallback((iso: number) => {
         setWeekStartDayError(null);
@@ -254,6 +424,7 @@ export default function WorkSchedulePage() {
         const built = validateAndBuildPayload();
         if (!built.ok) {
             setSaveError(built.error);
+            showToast({ variant: 'error', title: 'Cannot save', message: built.error });
             return;
         }
 
@@ -267,7 +438,9 @@ export default function WorkSchedulePage() {
             computedWeekStartLocal.setHours(0, 0, 0, 0);
             computedWeekStartIso = toDateOnlyISOStringFromLocal(computedWeekStartLocal);
         } catch (e) {
-            setWeekStartDayError(e instanceof Error ? e.message : 'Invalid weekend selection');
+            const msg = e instanceof Error ? e.message : 'Invalid weekend selection';
+            setWeekStartDayError(msg);
+            showToast({ variant: 'error', title: 'Invalid weekend', message: msg });
             return;
         }
 
@@ -283,12 +456,14 @@ export default function WorkSchedulePage() {
             });
             await refetchMy();
             if (showTeam) await refetchTeam();
+            showToast({ variant: 'success', title: 'Saved', message: 'Schedule saved.' });
         } catch (e: unknown) {
             const msg =
                 e && typeof e === 'object' && 'message' in e
                     ? String((e as { message: string }).message)
                     : 'Save failed';
             setSaveError(msg);
+            showToast({ variant: 'error', title: 'Save failed', message: msg });
         }
     };
 
@@ -300,12 +475,14 @@ export default function WorkSchedulePage() {
             setDeleteConfirm(false);
             await refetchMy();
             if (showTeam) await refetchTeam();
+            showToast({ variant: 'success', title: 'Cleared', message: 'Schedule cleared.' });
         } catch (e: unknown) {
             const msg =
                 e && typeof e === 'object' && 'message' in e
                     ? String((e as { message: string }).message)
                     : 'Delete failed';
             setSaveError(msg);
+            showToast({ variant: 'error', title: 'Clear failed', message: msg });
         }
     };
 
@@ -354,17 +531,25 @@ export default function WorkSchedulePage() {
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => setReferenceDate((d) => addDays(d, -7))}
+                        onClick={() => {
+                            setIsWeekTransitioning(true);
+                            setReferenceDate((d) => addDays(d, -7));
+                        }}
                         className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                         aria-label="Previous week"
+                        disabled={isWeekTransitioning}
                     >
                         <ChevronLeftIcon className="h-5 w-5" />
                     </button>
                     <button
                         type="button"
-                        onClick={() => setReferenceDate((d) => addDays(d, 7))}
+                        onClick={() => {
+                            setIsWeekTransitioning(true);
+                            setReferenceDate((d) => addDays(d, 7));
+                        }}
                         className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                         aria-label="Next week"
+                        disabled={isWeekTransitioning}
                     >
                         <ChevronRightIcon className="h-5 w-5" />
                     </button>
@@ -378,6 +563,7 @@ export default function WorkSchedulePage() {
                     onClick={() => {
                         const d = new Date();
                         d.setHours(0, 0, 0, 0);
+                        setIsWeekTransitioning(true);
                         setReferenceDate(d);
                     }}
                     className="btn-secondary text-sm self-start sm:self-auto"
@@ -386,41 +572,183 @@ export default function WorkSchedulePage() {
                 </button>
             </div>
 
-            {saveError && (
-                <div
-                    className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-800 dark:text-red-200"
-                    role="alert"
-                >
-                    {saveError}
-                </div>
-            )}
-
-            {weekStartDayError && (
-                <div
-                    className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-800 dark:text-red-200"
-                    role="alert"
-                >
-                    {weekStartDayError}
-                </div>
-            )}
+            {/* Feedback is shown via global toasts */}            
 
             {/* My schedule */}
             <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    {userName ? `${userName}'s plan` : 'My plan'}
-                </h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-3">
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {userName ? `${userName}'s schedule` : 'My schedule'}
+                        </h2>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                            {isDirty ? (
+                                <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 px-2 py-0.5 font-medium">
+                                    Unsaved changes
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center rounded-full bg-green-100 text-green-900 dark:bg-green-900/20 dark:text-green-200 px-2 py-0.5 font-medium">
+                                    Saved
+                                </span>
+                            )}
+                            {(myPlan as any)?.updatedAt && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                    Last saved {new Date((myPlan as any).updatedAt).toLocaleString()}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    const prevDate = addDays(referenceDate, -7);
+                                    const prevIso = toDateOnlyISOStringFromLocal(prevDate);
+                                    const res = await client.query({
+                                        query: GET_MY_WEEKLY_WORK_PLAN_FOR_DATE,
+                                        variables: { referenceDate: prevIso },
+                                        fetchPolicy: 'network-only',
+                                    });
+                                    const prevPlan = res.data?.myWeeklyWorkPlanForDate;
+                                    if (!prevPlan) {
+                                        showToast({
+                                            variant: 'info',
+                                            title: 'Nothing to copy',
+                                            message: 'No schedule found for the previous week.',
+                                        });
+                                        return;
+                                    }
+                                    setWeekendDays(
+                                        prevPlan.weekendDays?.length
+                                            ? [...prevPlan.weekendDays].sort(
+                                                  (a: number, b: number) => a - b,
+                                              )
+                                            : [6, 7],
+                                    );
+                                    setDraftSlots(
+                                        (prevPlan.slots ?? []).map(
+                                            (s: {
+                                                id: string;
+                                                dayOfWeek: number;
+                                                startMinutes: number;
+                                                endMinutes: number;
+                                            }) => ({
+                                                key: crypto.randomUUID(),
+                                                dayOfWeek: s.dayOfWeek,
+                                                startMinutes: s.startMinutes,
+                                                endMinutes: s.endMinutes,
+                                            }),
+                                        ),
+                                    );
+                                    showToast({
+                                        variant: 'success',
+                                        title: 'Copied',
+                                        message:
+                                            'Copied schedule from the previous week (not saved yet).',
+                                    });
+                                } catch (e: unknown) {
+                                    const msg =
+                                        e &&
+                                        typeof e === 'object' &&
+                                        'message' in e
+                                            ? String((e as { message: string }).message)
+                                            : 'Copy failed';
+                                    showToast({
+                                        variant: 'error',
+                                        title: 'Copy failed',
+                                        message: msg,
+                                    });
+                                }
+                            }}
+                            className="btn-secondary text-sm"
+                        >
+                            Copy last week
+                        </button>
+                    </div>
+                </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                     Choose weekend days (non-working). Add one or more time ranges on each working day. Week start depends on your weekend.
                 </p>
 
-                {myLoading ? (
-                    <div className="py-12 text-center">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto" />
-                    </div>
-                ) : (
+                <div className={`transition-opacity duration-200 ${isMyFetching || isWeekTransitioning ? 'opacity-70' : 'opacity-100'}`}>
                     <>
                         <div className="mb-8">
                             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Weekend days</h3>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const preset = [6, 7];
+                                        setWeekendDays(preset);
+                                        setDraftSlots((prev) =>
+                                            prev.filter((s) => !preset.includes(s.dayOfWeek)),
+                                        );
+                                        showToast({
+                                            variant: 'info',
+                                            title: 'Weekend preset',
+                                            message: 'Applied Sat–Sun weekend.',
+                                        });
+                                    }}
+                                    className="btn-secondary text-sm"
+                                >
+                                    Sat–Sun
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const preset = [5, 6];
+                                        setWeekendDays(preset);
+                                        setDraftSlots((prev) =>
+                                            prev.filter((s) => !preset.includes(s.dayOfWeek)),
+                                        );
+                                        showToast({
+                                            variant: 'info',
+                                            title: 'Weekend preset',
+                                            message: 'Applied Fri–Sat weekend.',
+                                        });
+                                    }}
+                                    className="btn-secondary text-sm"
+                                >
+                                    Fri–Sat
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const preset = [5];
+                                        setWeekendDays(preset);
+                                        setDraftSlots((prev) =>
+                                            prev.filter((s) => !preset.includes(s.dayOfWeek)),
+                                        );
+                                        showToast({
+                                            variant: 'info',
+                                            title: 'Weekend preset',
+                                            message: 'Applied Friday weekend.',
+                                        });
+                                    }}
+                                    className="btn-secondary text-sm"
+                                >
+                                    Friday
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const preset = [7];
+                                        setWeekendDays(preset);
+                                        setDraftSlots((prev) =>
+                                            prev.filter((s) => !preset.includes(s.dayOfWeek)),
+                                        );
+                                        showToast({
+                                            variant: 'info',
+                                            title: 'Weekend preset',
+                                            message: 'Applied Sunday weekend.',
+                                        });
+                                    }}
+                                    className="btn-secondary text-sm"
+                                >
+                                    Sunday
+                                </button>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                                 {ISO_DAYS.map((d) => (
                                     <label
@@ -449,6 +777,12 @@ export default function WorkSchedulePage() {
                                 const daySlots = draftSlots.filter((s) => s.dayOfWeek === iso);
                                 const isWeekend = weekendDays.includes(iso);
                                 const dayDate = addDays(weekStartLocalForGrid, idx);
+                                const dayTotalMinutes = daySlots.reduce(
+                                    (sum, s) =>
+                                        sum +
+                                        Math.max(0, s.endMinutes - s.startMinutes),
+                                    0,
+                                );
                                 return (
                                     <div
                                         key={iso}
@@ -461,6 +795,11 @@ export default function WorkSchedulePage() {
                                                     {format(dayDate, 'MMM d')}
                                                 </span>
                                             </span>
+                                            {!isWeekend && (
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {formatHoursFromMinutes(dayTotalMinutes)}
+                                                </span>
+                                            )}
                                             {!isWeekend && (
                                                 <button
                                                     type="button"
@@ -526,9 +865,25 @@ export default function WorkSchedulePage() {
                             })}
                         </div>
 
+                        <div className="mt-6 flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 bg-white/60 dark:bg-gray-900/20">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Total scheduled this week
+                            </span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {formatHoursFromMinutes(
+                                    draftSlots.reduce(
+                                        (sum, s) =>
+                                            sum +
+                                            Math.max(0, s.endMinutes - s.startMinutes),
+                                        0,
+                                    ),
+                                )}
+                            </span>
+                        </div>
+
                         <div className="mt-8 flex flex-wrap gap-3">
                             <button type="button" onClick={handleSave} disabled={saving} className="btn-primary">
-                                {saving ? 'Saving…' : 'Save week'}
+                                {saving ? 'Saving…' : 'Save Schedule'}
                             </button>
                             <button
                                 type="button"
@@ -536,47 +891,108 @@ export default function WorkSchedulePage() {
                                 disabled={deleting || !myPlan || !weekendMatchesLoaded}
                                 className="btn-secondary text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 disabled:opacity-50"
                             >
-                                Clear this week
+                                Clear Schedule
                             </button>
                         </div>
                     </>
-                )}
+                </div>
             </div>
 
             {/* Team overview (admin / lead / HR) */}
             {showTeam && (
                 <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
-                        <UserGroupIcon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-                        Team schedules
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Working hours submitted by each employee for the work-week that contains the selected date. “—” means no plan saved yet.
-                    </p>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                                <UserGroupIcon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                                Team schedules
+                            </h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Active users are employees who are currently within their scheduled work time.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20 px-3 py-2 text-sm">
+                                <span className="text-gray-600 dark:text-gray-400">Active</span>
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                    {activeUserCount}
+                                </span>
+                                <span className="text-gray-300 dark:text-gray-600">/</span>
+                                <span className="text-gray-600 dark:text-gray-400">Inactive</span>
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                    {inactiveUserCount}
+                                </span>
+                            </div>
+
+                            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20 p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setTeamFilter('all')}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                        teamFilter === 'all'
+                                            ? 'bg-primary-600 text-white'
+                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+                                    }`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTeamFilter('active')}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                        teamFilter === 'active'
+                                            ? 'bg-primary-600 text-white'
+                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+                                    }`}
+                                >
+                                    Active
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setTeamFilter('inactive')}
+                                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                                        teamFilter === 'inactive'
+                                            ? 'bg-primary-600 text-white'
+                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+                                    }`}
+                                >
+                                    Inactive
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     {teamLoading ? (
                         <div className="py-12 text-center">
                             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto" />
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            {(teamData?.teamWeeklyScheduleForDate ?? []).map(
-                                (row: {
-                                    user: { id: string; name: string; email: string };
-                                    plan: {
-                                        weekStart: string;
-                                        weekendDays: number[];
-                                        slots: { id: string; dayOfWeek: number; startMinutes: number; endMinutes: number }[];
-                                    } | null;
-                                }) => {
+                        <div className={`space-y-6 transition-opacity duration-200 ${isTeamFetching || isWeekTransitioning ? 'opacity-70' : 'opacity-100'}`}>
+                            {filteredTeamRows.length === 0 ? (
+                                <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-sm text-gray-600 dark:text-gray-400 text-center">
+                                    No employees match this filter.
+                                </div>
+                            ) : (
+                                filteredTeamRows.map((row) => {
                                     if (!row.plan) {
                                         return (
                                             <div key={row.user.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                                                <div className="font-medium text-gray-900 dark:text-white">{row.user.name}</div>
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <div className="font-medium text-gray-900 dark:text-white">{row.user.name}</div>
+                                                        <div className="text-xs text-gray-500 truncate" title={row.user.email}>
+                                                            {row.user.email}
+                                                        </div>
+                                                    </div>
+                                                    <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 text-xs font-medium">
+                                                        Inactive
+                                                    </span>
+                                                </div>
                                                 <div className="text-xs text-gray-500 truncate" title={row.user.email}>
                                                     {row.user.email}
                                                 </div>
-                                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">— No plan saved</p>
+                                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">— No schedule saved</p>
                                             </div>
                                         );
                                     }
@@ -599,6 +1015,8 @@ export default function WorkSchedulePage() {
                                         planWeekStart.getUTCDate(),
                                     );
 
+                                    const isActiveNow = isPlanActiveNow(plan, new Date());
+
                                     return (
                                         <div key={row.user.id} className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                                             <div className="flex items-start justify-between gap-3">
@@ -611,6 +1029,15 @@ export default function WorkSchedulePage() {
                                                         {format(planWeekStartLocal, 'MMM d')} – {format(addDays(planWeekStartLocal, 6), 'MMM d, yyyy')}
                                                     </div>
                                                 </div>
+                                                {isActiveNow ? (
+                                                    <span className="inline-flex items-center rounded-full bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 px-2 py-0.5 text-xs font-medium">
+                                                        Active
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 text-xs font-medium">
+                                                        Inactive
+                                                    </span>
+                                                )}
                                             </div>
 
                                             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -646,7 +1073,7 @@ export default function WorkSchedulePage() {
                                             </div>
                                         </div>
                                     );
-                                },
+                                })
                             )}
                         </div>
                     )}
@@ -662,7 +1089,7 @@ export default function WorkSchedulePage() {
                         onClick={() => setDeleteConfirm(false)}
                     />
                     <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clear this week?</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Clear this schedule?</h3>
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                             This removes your saved schedule for {weekRangeLabel}. You can set it again later.
                         </p>
@@ -676,7 +1103,7 @@ export default function WorkSchedulePage() {
                                 onClick={handleDeleteWeek}
                                 disabled={deleting}
                             >
-                                {deleting ? 'Clearing…' : 'Clear'}
+                                {deleting ? 'Clearing…' : 'Clear schedule'}
                             </button>
                         </div>
                     </div>
