@@ -172,7 +172,7 @@ export default function WorkSchedulePage() {
         [referenceDate],
     );
 
-    const [weekendDays, setWeekendDays] = useState<number[]>([6, 7]);
+    const [weekendDays, setWeekendDays] = useState<number[]>([5]);
     const [draftSlots, setDraftSlots] = useState<DraftSlot[]>([]);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -236,7 +236,7 @@ export default function WorkSchedulePage() {
             | undefined) ?? [];
 
     const isDirty = useMemo(() => {
-        const loadedWeekend = [...(myPlan?.weekendDays ?? [6, 7])].sort((a, b) => a - b);
+        const loadedWeekend = [...(myPlan?.weekendDays ?? [5])].sort((a, b) => a - b);
         const currentWeekend = [...weekendDays].sort((a, b) => a - b);
         const weekendChanged =
             loadedWeekend.length !== currentWeekend.length ||
@@ -314,14 +314,14 @@ export default function WorkSchedulePage() {
     useEffect(() => {
         if (myLoading && !myPlan) return;
         if (!myPlan) {
-            setWeekendDays([6, 7]);
+            setWeekendDays([5]);
             setDraftSlots([]);
             return;
         }
 
         const p = myPlan;
         setWeekendDays(
-            p.weekendDays?.length ? [...p.weekendDays].sort((a, b) => a - b) : [6, 7],
+            p.weekendDays?.length ? [...p.weekendDays].sort((a, b) => a - b) : [5],
         );
         setDraftSlots(
             (p.slots ?? []).map((s: { id: string; dayOfWeek: number; startMinutes: number; endMinutes: number }) => ({
@@ -624,7 +624,7 @@ export default function WorkSchedulePage() {
                                             ? [...prevPlan.weekendDays].sort(
                                                   (a: number, b: number) => a - b,
                                               )
-                                            : [6, 7],
+                                            : [5],
                                     );
                                     setDraftSlots(
                                         (prevPlan.slots ?? []).map(
