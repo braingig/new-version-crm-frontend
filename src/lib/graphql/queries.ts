@@ -731,3 +731,67 @@ export const MARK_ALL_NOTIFICATIONS_AS_READ = gql`
     markAllNotificationsAsRead
   }
 `;
+
+export const GET_MY_WEEKLY_WORK_PLAN_FOR_DATE = gql`
+  query GetMyWeeklyWorkPlanForDate($referenceDate: DateTime!) {
+    myWeeklyWorkPlanForDate(referenceDate: $referenceDate) {
+      id
+      userId
+      weekStart
+      weekendDays
+      slots {
+        id
+        dayOfWeek
+        startMinutes
+        endMinutes
+      }
+    }
+  }
+`;
+
+export const GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE = gql`
+  query GetTeamWeeklyScheduleForDate($referenceDate: DateTime!) {
+    teamWeeklyScheduleForDate(referenceDate: $referenceDate) {
+      user {
+        id
+        name
+        email
+      }
+      plan {
+        id
+        userId
+        weekStart
+        weekendDays
+        slots {
+          id
+          dayOfWeek
+          startMinutes
+          endMinutes
+        }
+      }
+    }
+  }
+`;
+
+export const SET_WEEKLY_WORK_PLAN = gql`
+  mutation SetWeeklyWorkPlan($input: SetWeeklyWorkPlanInput!) {
+    setWeeklyWorkPlan(input: $input) {
+      id
+      userId
+      weekStart
+      weekendDays
+      slots {
+        id
+        dayOfWeek
+        startMinutes
+        endMinutes
+      }
+    }
+  }
+`;
+
+export const DELETE_WEEKLY_WORK_PLAN = gql`
+  mutation DeleteWeeklyWorkPlan($weekStart: DateTime!) {
+    deleteWeeklyWorkPlan(weekStart: $weekStart)
+  }
+`;

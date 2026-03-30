@@ -21,6 +21,7 @@ export const ROUTES = {
   EMPLOYEES: '/dashboard/employees',
   PROJECTS: '/dashboard/projects',
   TASKS: '/dashboard/tasks',
+  WORK_SCHEDULE: '/dashboard/work-schedule',
   TIME_TRACKER: '/dashboard/time-tracker',
   PAYROLL: '/dashboard/payroll',
   SALES: '/dashboard/sales',
@@ -34,6 +35,7 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
     ROUTES.TASKS,
+    ROUTES.WORK_SCHEDULE,
     // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
     ROUTES.SALES,
@@ -44,6 +46,7 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
     ROUTES.TASKS,
+    ROUTES.WORK_SCHEDULE,
     // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
     ROUTES.REPORTS,
@@ -52,6 +55,7 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     ROUTES.DASHBOARD,
     ROUTES.EMPLOYEES,
     ROUTES.PROJECTS,
+    ROUTES.WORK_SCHEDULE,
     // ROUTES.TIME_TRACKER,
     ROUTES.PAYROLL,
     ROUTES.REPORTS,
@@ -60,18 +64,21 @@ const ROLE_ROUTES: Record<AppRole, string[]> = {
     ROUTES.DASHBOARD,
     ROUTES.TASKS,
     ROUTES.PROJECTS,
+    ROUTES.WORK_SCHEDULE,
     // ROUTES.TIME_TRACKER,
   ],
   SALES: [
     ROUTES.DASHBOARD,
     ROUTES.SALES,
     ROUTES.PROJECTS,
+    ROUTES.WORK_SCHEDULE,
     // ROUTES.TIME_TRACKER,
   ],
   SEO_EXPERT: [
     ROUTES.DASHBOARD,
     ROUTES.TASKS,
     ROUTES.PROJECTS,
+    ROUTES.WORK_SCHEDULE,
     ROUTES.REPORTS,
   ],
 };
@@ -108,4 +115,11 @@ export function getAllowedRoutes(role: string | undefined | null): string[] {
   if (!role) return [];
   const r = role.toUpperCase() as AppRole;
   return ROLE_ROUTES[r] ?? [];
+}
+
+/** Roles that can view the full-team weekly schedule. */
+export function canViewTeamWorkSchedule(role: string | undefined | null): boolean {
+  if (!role) return false;
+  const r = role.toUpperCase();
+  return r === 'ADMIN' || r === 'TEAM_LEAD' || r === 'HR';
 }
