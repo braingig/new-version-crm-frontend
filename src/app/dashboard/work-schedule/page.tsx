@@ -989,9 +989,6 @@ export default function WorkSchedulePage() {
                                                         Inactive
                                                     </span>
                                                 </div>
-                                                <div className="text-xs text-gray-500 truncate" title={row.user.email}>
-                                                    {row.user.email}
-                                                </div>
                                                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">— No schedule saved</p>
                                             </div>
                                         );
