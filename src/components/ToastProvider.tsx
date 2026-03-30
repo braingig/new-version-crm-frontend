@@ -13,8 +13,8 @@ export type ToastOptions = {
   durationMs?: number;
 };
 
-type ToastInternal = Required<Pick<ToastOptions, 'id' | 'message'>> &
-  Pick<ToastOptions, 'title' | 'variant' | 'durationMs'>;
+type ToastInternal = Required<Pick<ToastOptions, 'id' | 'message' | 'variant' | 'durationMs'>> &
+  Pick<ToastOptions, 'title'>;
 
 type ToastContextValue = {
   showToast: (opts: ToastOptions) => string;
