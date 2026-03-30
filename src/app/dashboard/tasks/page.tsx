@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
+import { useToast } from '@/components/ToastProvider';
 import {
     PlusIcon,
     FunnelIcon,
@@ -498,6 +499,7 @@ import TaskModal from '@/components/TaskModal';
 import TaskDetailsModal from '@/components/TaskDetailsModal';
 
 export default function TasksPage() {
+    const { showToast } = useToast();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showFilters, setShowFilters] = useState(false);
@@ -676,7 +678,10 @@ export default function TasksPage() {
 
     const handleCreateTask = () => {
         if (projects.length === 0) {
-            alert('No projects available. Please create a project first.');
+            showToast({
+                variant: 'warning',
+                message: 'No projects available. Please create a project first.',
+            });
             return;
         }
         setParentTaskForModal(null);
@@ -712,12 +717,13 @@ export default function TasksPage() {
             if (editingTask && editingTask.id) {
                 // For updates, exclude projectId and listId (not in UpdateTaskInput)
                 const { projectId, listId, ...updateData } = data;
-                const result = await updateTask({
+                await updateTask({
                     variables: {
                         id: editingTask.id,
                         input: updateData,
                     },
                 });
+                showToast({ variant: 'success', message: 'Task updated successfully.' });
             } else {
                 // If creating a subtask, add parentTaskId and ensure projectId is set
                 const createData = { ...data };
@@ -728,15 +734,16 @@ export default function TasksPage() {
                         createData.projectId = parentTaskForModal.projectId;
                     }
                 }
-                const result = await createTask({
+                await createTask({
                     variables: {
                         input: createData,
                     },
                 });
+                showToast({ variant: 'success', message: 'Task created successfully.' });
             }
             setShowModal(false);
             setParentTaskForModal(null);
-            const refetchResult = await refetchTasks();
+            await refetchTasks();
         } catch (error: any) {
             console.error('Error saving task:', error);
             console.error('GraphQL errors:', error.graphQLErrors);
@@ -746,7 +753,7 @@ export default function TasksPage() {
             if (error.graphQLErrors && error.graphQLErrors.length > 0) {
                 const gqlError = error.graphQLErrors[0];
                 console.error('GraphQL error details:', gqlError);
-                alert(`GraphQL Error: ${gqlError.message}`);
+                showToast({ variant: 'error', message: gqlError.message || 'Failed to save task.' });
             } else if (error.networkError) {
                 console.error('Network error details:', error.networkError);
                 console.error('Network error result:', (error.networkError as any)?.result);
@@ -756,12 +763,18 @@ export default function TasksPage() {
                 // Try to extract more details from the response
                 const result = (error.networkError as any)?.result;
                 if (result && result.errors) {
-                    alert(`Server Error: ${result.errors.map((e: any) => e.message).join(', ')}`);
+                    showToast({
+                        variant: 'error',
+                        message: result.errors.map((e: any) => e.message).join(', ') || 'Server error.',
+                    });
                 } else {
-                    alert(`Network Error: ${error.networkError.message || 'Connection failed'}`);
+                    showToast({
+                        variant: 'error',
+                        message: error.networkError.message || 'Connection failed.',
+                    });
                 }
             } else {
-                alert(`Error saving task: ${error.message || 'Unknown error'}`);
+                showToast({ variant: 'error', message: error.message || 'Unknown error.' });
             }
         }
     };
@@ -773,8 +786,13 @@ export default function TasksPage() {
                     variables: { id: task.id },
                 });
                 await refetchTasks();
+                showToast({ variant: 'success', message: 'Task deleted successfully.' });
             } catch (error) {
                 console.error('Error deleting task:', error);
+                showToast({
+                    variant: 'error',
+                    message: (error as any)?.message || 'Failed to delete task.',
+                });
             }
         }
     };
@@ -788,8 +806,13 @@ export default function TasksPage() {
                 },
             });
             refetchTasks();
+            showToast({ variant: 'success', message: 'Task status updated.' });
         } catch (error) {
             console.error('Error updating task status:', error);
+            showToast({
+                variant: 'error',
+                message: (error as any)?.message || 'Failed to update task status.',
+            });
         }
     };
 
@@ -810,7 +833,7 @@ export default function TasksPage() {
 
     const handleCreateList = () => {
         if (!selectedProjectId) {
-            alert('Select a project first');
+            showToast({ variant: 'warning', message: 'Select a project first.' });
             return;
         }
         setEditingList(null);
@@ -829,8 +852,13 @@ export default function TasksPage() {
                 variables: { id: list.id },
             });
             await Promise.all([refetchLists(), refetchTasks()]);
+            showToast({ variant: 'success', message: 'List deleted successfully.' });
         } catch (error) {
             console.error('Error deleting list', error);
+            showToast({
+                variant: 'error',
+                message: (error as any)?.message || 'Failed to delete list.',
+            });
         }
     };
 
@@ -840,7 +868,7 @@ export default function TasksPage() {
         const name = (formData.get('name') as string)?.trim();
         const description = (formData.get('description') as string | null)?.trim() || undefined;
         if (!name) {
-            alert('List name is required');
+            showToast({ variant: 'warning', message: 'List name is required.' });
             return;
         }
         try {
@@ -851,6 +879,7 @@ export default function TasksPage() {
                         input: { name, description },
                     },
                 });
+                showToast({ variant: 'success', message: 'List updated successfully.' });
             } else {
                 await createTaskList({
                     variables: {
@@ -861,12 +890,17 @@ export default function TasksPage() {
                         },
                     },
                 });
+                showToast({ variant: 'success', message: 'List created successfully.' });
             }
             setShowListModal(false);
             setEditingList(null);
             await refetchLists();
         } catch (error) {
             console.error('Error saving list', error);
+            showToast({
+                variant: 'error',
+                message: (error as any)?.message || 'Failed to save list.',
+            });
         }
     };
 

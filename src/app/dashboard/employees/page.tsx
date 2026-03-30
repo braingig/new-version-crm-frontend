@@ -6,8 +6,10 @@ import { GET_USERS, DELETE_USER } from '@/lib/graphql/queries';
 import { UserGroupIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
 import EditEmployeeModal from '@/components/EditEmployeeModal';
+import { useToast } from '@/components/ToastProvider';
 
 export default function EmployeesPage() {
+    const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -49,8 +51,13 @@ export default function EmployeesPage() {
             });
             refetch();
             setDeleteConfirm({ show: false, employeeId: '', employeeName: '' });
+            showToast({ variant: 'success', message: 'Employee deleted successfully.' });
         } catch (error) {
             console.error('Delete failed:', error);
+            showToast({
+                variant: 'error',
+                message: (error as any)?.message || 'Failed to delete employee.',
+            });
         }
     };
 

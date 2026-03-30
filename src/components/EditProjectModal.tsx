@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useToast } from '@/components/ToastProvider';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface FormData {
  }
 
 export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, project }: EditProjectModalProps) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -79,9 +81,13 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
       });
 
       onProjectUpdated();
+      showToast({ variant: 'success', message: 'Project updated successfully.' });
       onClose();
     } catch (err) {
-      // Error is handled by the error state
+      showToast({
+        variant: 'error',
+        message: (err as any)?.message || 'Failed to update project.',
+      });
     }
   };
 

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { CREATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useToast } from '@/components/ToastProvider';
 
 interface AddProjectModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface FormData {
 }
 
 export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: AddProjectModalProps) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -72,9 +74,13 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
       });
 
       onProjectAdded();
+      showToast({ variant: 'success', message: 'Project created successfully.' });
       onClose();
     } catch (err) {
-      // Error is handled by the error state
+      showToast({
+        variant: 'error',
+        message: (err as any)?.message || 'Failed to create project.',
+      });
     }
   };
 

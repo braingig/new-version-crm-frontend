@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT } from '@/lib/graphql/queries';
+import { useToast } from '@/components/ToastProvider';
 import { 
     FolderIcon, 
     PlusIcon, 
@@ -18,6 +19,7 @@ import AddProjectModal from '@/components/AddProjectModal';
 import EditProjectModal from '@/components/EditProjectModal';
 
 export default function ProjectsPage() {
+    const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedProject, setSelectedProject] = useState<any>(null);
@@ -64,8 +66,13 @@ export default function ProjectsPage() {
             });
             refetch();
             setDeleteConfirm({ show: false, projectId: '', projectName: '' });
+            showToast({ variant: 'success', message: 'Project deleted successfully.' });
         } catch (error) {
             console.error('Delete failed:', error);
+            showToast({
+                variant: 'error',
+                message: (error as any)?.message || 'Failed to delete project.',
+            });
         }
     };
 

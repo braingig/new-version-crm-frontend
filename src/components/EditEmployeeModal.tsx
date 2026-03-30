@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_USER, CHANGE_USER_PASSWORD } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useToast } from '@/components/ToastProvider';
 
 interface EditEmployeeModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ interface FormData {
 }
 
 export default function EditEmployeeModal({ isOpen, onClose, onEmployeeUpdated, employee }: EditEmployeeModalProps) {
+    const { showToast } = useToast();
     const [formData, setFormData] = useState<FormData>({
         name: '',
         email: '',
@@ -96,9 +98,13 @@ export default function EditEmployeeModal({ isOpen, onClose, onEmployeeUpdated, 
             }
 
             onEmployeeUpdated();
+            showToast({ variant: 'success', message: 'Employee updated successfully.' });
             onClose();
         } catch (err) {
-            // Error handled by error state
+            showToast({
+                variant: 'error',
+                message: (err as any)?.message || 'Failed to update employee.',
+            });
         }
     };
 

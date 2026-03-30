@@ -42,6 +42,7 @@ import {
 import { useState, useEffect, useMemo } from 'react';
 import TaskModal from '@/components/TaskModal';
 import { useAuthStore } from '@/lib/store';
+import { useToast } from '@/components/ToastProvider';
 
 const priorityColors: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -63,6 +64,7 @@ export default function TaskDetailsPage() {
     const taskId = params?.id as string;
     const currentUser = useAuthStore((state) => state.user);
     const currentUserId = currentUser?.id;
+    const { showToast } = useToast();
 
     const [newComment, setNewComment] = useState('');
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -125,21 +127,32 @@ export default function TaskDetailsPage() {
 
     const handleStatusChange = (newStatus: string) => {
         setStatusDropdownOpen(false);
-        updateTask({
-            variables: { id: taskId, input: { status: newStatus } },
-        });
+        updateTask({ variables: { id: taskId, input: { status: newStatus } } })
+            .then(() => showToast({ variant: 'success', message: 'Task status updated.' }))
+            .catch((e: any) =>
+                showToast({
+                    variant: 'error',
+                    message: e?.message || 'Failed to update task status.',
+                }),
+            );
     };
 
     const handleAddComment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!newComment.trim()) return;
-        addComment({
-            variables: { taskId, content: newComment.trim() },
-        });
+        addComment({ variables: { taskId, content: newComment.trim() } })
+            .then(() => showToast({ variant: 'success', message: 'Comment added.' }))
+            .catch((e: any) =>
+                showToast({ variant: 'error', message: e?.message || 'Failed to add comment.' }),
+            );
     };
 
     const handleDelete = () => {
-        deleteTask({ variables: { id: taskId } });
+        deleteTask({ variables: { id: taskId } })
+            .then(() => showToast({ variant: 'success', message: 'Task deleted successfully.' }))
+            .catch((e: any) =>
+                showToast({ variant: 'error', message: e?.message || 'Failed to delete task.' }),
+            );
         setDeleteConfirm(false);
     };
 
@@ -150,9 +163,10 @@ export default function TaskDetailsPage() {
             await updateTask({
                 variables: { id: taskId, input: updateData },
             });
+            showToast({ variant: 'success', message: 'Task updated successfully.' });
             setShowEditModal(false);
         } catch (err: any) {
-            alert(err?.message || 'Failed to update task');
+            showToast({ variant: 'error', message: err?.message || 'Failed to update task.' });
         }
     };
 
@@ -376,8 +390,10 @@ export default function TaskDetailsPage() {
                 },
             });
             await Promise.all([refetchActive(), refetchTimeEntries()]);
+            showToast({ variant: 'success', message: 'Timer started.' });
         } catch (e) {
             console.error('Failed to start timer', e);
+            showToast({ variant: 'error', message: (e as any)?.message || 'Failed to start timer.' });
         }
     };
 
@@ -385,8 +401,10 @@ export default function TaskDetailsPage() {
         try {
             await stopTimeEntry();
             await Promise.all([refetchActive(), refetchTimeEntries()]);
+            showToast({ variant: 'success', message: 'Timer stopped.' });
         } catch (e) {
             console.error('Failed to stop timer', e);
+            showToast({ variant: 'error', message: (e as any)?.message || 'Failed to stop timer.' });
         }
     };
 

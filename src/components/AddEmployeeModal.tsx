@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { REGISTER_MUTATION } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useToast } from '@/components/ToastProvider';
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface FormData {
 }
 
 export default function AddEmployeeModal({ isOpen, onClose, onEmployeeAdded }: AddEmployeeModalProps) {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -71,9 +73,13 @@ export default function AddEmployeeModal({ isOpen, onClose, onEmployeeAdded }: A
       });
 
       onEmployeeAdded();
+      showToast({ variant: 'success', message: 'Employee added successfully.' });
       onClose();
     } catch (err) {
-      // Error is handled by the error state
+      showToast({
+        variant: 'error',
+        message: (err as any)?.message || 'Failed to add employee.',
+      });
     }
   };
 

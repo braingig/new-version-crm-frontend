@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_TASK_DETAILS, GET_ACTIVE_TIME_ENTRY, GET_TIME_ENTRIES, START_TIME_ENTRY, STOP_TIME_ENTRY } from '@/lib/graphql/queries';
+import { useToast } from '@/components/ToastProvider';
 
 interface TaskDetailsModalProps {
     taskId: string | null;
@@ -12,6 +13,7 @@ interface TaskDetailsModalProps {
 }
 
 export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetailsModalProps) {
+    const { showToast } = useToast();
     const { data, loading, error } = useQuery(GET_TASK_DETAILS, {
         variables: { id: taskId as string },
         skip: !taskId || !isOpen,
@@ -90,8 +92,10 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                 },
             });
             await Promise.all([refetchActive(), refetchTimeEntries()]);
+            showToast({ variant: 'success', message: 'Timer started.' });
         } catch (e) {
             console.error('Failed to start timer', e);
+            showToast({ variant: 'error', message: (e as any)?.message || 'Failed to start timer.' });
         }
     };
 
@@ -99,8 +103,10 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
         try {
             await stopTimeEntry();
             await Promise.all([refetchActive(), refetchTimeEntries()]);
+            showToast({ variant: 'success', message: 'Timer stopped.' });
         } catch (e) {
             console.error('Failed to stop timer', e);
+            showToast({ variant: 'error', message: (e as any)?.message || 'Failed to stop timer.' });
         }
     };
 
