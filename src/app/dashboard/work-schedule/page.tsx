@@ -21,6 +21,11 @@ import {
     UserGroupIcon,
 } from '@heroicons/react/24/outline';
 import { addDays, format } from 'date-fns';
+import {
+    isPlanActiveNow,
+    toDateOnlyISOStringFromLocal,
+    computeWorkWeekStartDay,
+} from '@/lib/work-schedule/scheduleActiveNow';
 
 /** ISO weekday: 1 = Monday … 7 = Sunday */
 const ISO_DAYS: { iso: number; short: string; label: string }[] = [
@@ -37,42 +42,6 @@ function isoDayFromLocal(date: Date): number {
     const d = new Date(date);
     const js = d.getDay(); // 0=Sun..6=Sat
     return js === 0 ? 7 : js;
-}
-
-function toDateOnlyISOStringFromLocal(localMidnight: Date): string {
-    return new Date(
-        Date.UTC(
-            localMidnight.getFullYear(),
-            localMidnight.getMonth(),
-            localMidnight.getDate(),
-        ),
-    ).toISOString();
-}
-
-function nextIsoDay(iso: number): number {
-    return iso === 7 ? 1 : iso + 1;
-}
-
-function computeWorkWeekStartDay(weekendDays: number[]): number {
-    // weekendDays are ISO: 1=Mon ... 7=Sun
-    // Work week start = first working day after the weekend block ends.
-    const isWeekend: boolean[] = Array.from({ length: 8 }, () => false); // 0..7 (0 unused)
-    for (const d of weekendDays) isWeekend[d] = true;
-
-    const boundaries: number[] = [];
-    for (let dayIso = 1; dayIso <= 7; dayIso++) {
-        const isBoundaryEnd = isWeekend[dayIso] && !isWeekend[nextIsoDay(dayIso)];
-        if (isBoundaryEnd) boundaries.push(dayIso);
-    }
-
-    // For a single consecutive weekend block there should be exactly 1 boundary end.
-    if (boundaries.length !== 1) {
-        throw new Error(
-            'weekendDays must form one consecutive block (e.g. Fri or Fri-Sat or Sat-Sun).',
-        );
-    }
-    const endWeekendDay = boundaries[0];
-    return nextIsoDay(endWeekendDay);
 }
 
 function minutesToTimeValue(m: number): string {
@@ -101,52 +70,6 @@ function formatHoursFromMinutes(totalMinutes: number): string {
     if (h <= 0) return `${m}m`;
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
-}
-
-function startOfLocalDay(d: Date): Date {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-function isPlanActiveNow(
-    plan: {
-        weekStart: string;
-        weekendDays: number[];
-        slots: { dayOfWeek: number; startMinutes: number; endMinutes: number }[];
-    },
-    now: Date,
-): boolean {
-    const planWeekStart = new Date(plan.weekStart);
-    const planWeekStartLocal = new Date(
-        planWeekStart.getUTCFullYear(),
-        planWeekStart.getUTCMonth(),
-        planWeekStart.getUTCDate(),
-    );
-    const todayStart = startOfLocalDay(now);
-    const weekEnd = addDays(planWeekStartLocal, 6);
-    if (todayStart < planWeekStartLocal || todayStart > weekEnd) return false;
-
-    const idx = Math.round(
-        (todayStart.getTime() - planWeekStartLocal.getTime()) / (24 * 60 * 60 * 1000),
-    );
-    if (idx < 0 || idx > 6) return false;
-
-    let startDay = 1;
-    try {
-        startDay = computeWorkWeekStartDay(plan.weekendDays ?? []);
-    } catch {
-        startDay = 1;
-    }
-    const dayOrder = Array.from({ length: 7 }, (_, i) => ((startDay - 1 + i) % 7) + 1);
-    const iso = dayOrder[idx];
-    if ((plan.weekendDays ?? []).includes(iso)) return false;
-
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const daySlots = (plan.slots ?? []).filter((s) => s.dayOfWeek === iso);
-    if (daySlots.length === 0) return false;
-
-    return daySlots.some(
-        (s) => nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes,
-    );
 }
 
 type DraftSlot = {

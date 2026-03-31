@@ -502,6 +502,18 @@ export const GET_ACTIVE_TIME_ENTRY = gql`
   }
 `;
 
+export const GET_ACTIVE_TEAM_TIMERS = gql`
+  query GetActiveTeamTimers {
+    activeTeamTimers {
+      entryId
+      employeeId
+      employeeName
+      taskId
+      startTime
+    }
+  }
+`;
+
 export const GET_TODAY_TIMESHEET = gql`
   query GetTodayTimesheet {
     todayTimesheet {

@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/store';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import ActiveTimerFloatingButton from '@/components/ActiveTimerFloatingButton';
+import DashboardFloatingActions from '@/components/DashboardFloatingActions';
 import { canAccessRoute } from '@/lib/permissions';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -46,7 +46,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 <Header />
                 <main className="p-6">{children}</main>
             </div>
-            <ActiveTimerFloatingButton />
+            <DashboardFloatingActions />
         </div>
     );
 }

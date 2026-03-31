@@ -1,15 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_USERS, DELETE_USER } from '@/lib/graphql/queries';
+import { GET_USERS, DELETE_USER, GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE } from '@/lib/graphql/queries';
 import { UserGroupIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
 import EditEmployeeModal from '@/components/EditEmployeeModal';
 import { useToast } from '@/components/ToastProvider';
+import { useAuthStore } from '@/lib/store';
+import { canViewTeamWorkSchedule } from '@/lib/permissions';
+import {
+    isPlanActiveNow,
+    toDateOnlyISOStringFromLocal,
+    type WeeklyPlanLike,
+} from '@/lib/work-schedule/scheduleActiveNow';
 
 export default function EmployeesPage() {
     const { showToast } = useToast();
+    const role = useAuthStore((s) => s.user?.role);
+    const showTeamSchedule = canViewTeamWorkSchedule(role);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
@@ -18,10 +28,52 @@ export default function EmployeesPage() {
         employeeId: '',
         employeeName: ''
     });
+
+    /** Re-render schedule status with the clock (same cadence as Work schedule team view). */
+    const [liveStatusTick, setLiveStatusTick] = useState(0);
+    useEffect(() => {
+        const id = window.setInterval(() => setLiveStatusTick((n) => n + 1), 30_000);
+        return () => window.clearInterval(id);
+    }, []);
+
+    /** Calendar “today” for the team schedule API; recomputed each render so it stays correct after midnight. */
+    const todayReferenceIso = (() => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        return toDateOnlyISOStringFromLocal(d);
+    })();
+
     const { data, loading, refetch } = useQuery(GET_USERS);
+    const { data: teamScheduleData, loading: teamScheduleLoading } = useQuery(
+        GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE,
+        {
+            variables: { referenceDate: todayReferenceIso },
+            skip: !showTeamSchedule,
+            fetchPolicy: 'cache-and-network',
+        },
+    );
     const [deleteUser] = useMutation(DELETE_USER);
 
     const users = data?.users || [];
+
+    const planByUserId = useMemo(() => {
+        const rows =
+            (teamScheduleData?.teamWeeklyScheduleForDate as
+                | Array<{ user: { id: string }; plan: WeeklyPlanLike | null }>
+                | undefined) ?? [];
+        const m = new Map<string, WeeklyPlanLike | null>();
+        for (const row of rows) {
+            m.set(row.user.id, row.plan);
+        }
+        return m;
+    }, [teamScheduleData]);
+
+    const scheduleActiveForUser = (userId: string): boolean | null => {
+        if (!showTeamSchedule) return null;
+        const plan = planByUserId.get(userId);
+        if (!plan) return false;
+        return isPlanActiveNow(plan, new Date());
+    };
 
     const handleEmployeeAdded = () => {
         refetch();
@@ -114,7 +166,22 @@ export default function EmployeesPage() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {users.map((user: any) => (
+                                {users.map((user: any) => {
+                                    const scheduleActive = scheduleActiveForUser(user.id);
+                                    const scheduleLoading = showTeamSchedule && teamScheduleLoading && !teamScheduleData;
+                                    const statusLabel =
+                                        scheduleLoading
+                                            ? '…'
+                                            : showTeamSchedule
+                                              ? scheduleActive
+                                                  ? 'Active'
+                                                  : 'Inactive'
+                                              : user.status;
+                                    const statusGreen =
+                                        showTeamSchedule && !scheduleLoading
+                                            ? scheduleActive === true
+                                            : user.status === 'ACTIVE';
+                                    return (
                                     <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -136,12 +203,15 @@ export default function EmployeesPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span
-                                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'ACTIVE'
+                                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                                    statusGreen
                                                         ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                                        : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                                                    }`}
+                                                        : scheduleLoading
+                                                          ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                                                          : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                                }`}
                                             >
-                                                {user.status}
+                                                {statusLabel}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -159,7 +229,8 @@ export default function EmployeesPage() {
                                             </button>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
