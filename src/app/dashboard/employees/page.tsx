@@ -2,18 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_USERS, DELETE_USER, GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE } from '@/lib/graphql/queries';
-import { UserGroupIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { GET_USERS, DELETE_USER, GET_TEAM_WORK_SCHEDULES } from '@/lib/graphql/queries';
+import { UserGroupIcon, PencilIcon, TrashIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import AddEmployeeModal from '@/components/AddEmployeeModal';
 import EditEmployeeModal from '@/components/EditEmployeeModal';
 import { useToast } from '@/components/ToastProvider';
 import { useAuthStore } from '@/lib/store';
 import { canViewTeamWorkSchedule } from '@/lib/permissions';
-import {
-    isPlanActiveNow,
-    toDateOnlyISOStringFromLocal,
-    type WeeklyPlanLike,
-} from '@/lib/work-schedule/scheduleActiveNow';
+import { isScheduleActiveNow, type WorkScheduleLike } from '@/lib/work-schedule/scheduleActiveNow';
+import WorkScheduleEditor from '@/components/WorkScheduleEditor';
 
 export default function EmployeesPage() {
     const { showToast } = useToast();
@@ -28,6 +25,7 @@ export default function EmployeesPage() {
         employeeId: '',
         employeeName: ''
     });
+    const [scheduleModalUser, setScheduleModalUser] = useState<{ id: string; name: string } | null>(null);
 
     /** Re-render schedule status with the clock (same cadence as Work schedule team view). */
     const [liveStatusTick, setLiveStatusTick] = useState(0);
@@ -36,18 +34,10 @@ export default function EmployeesPage() {
         return () => window.clearInterval(id);
     }, []);
 
-    /** Calendar “today” for the team schedule API; recomputed each render so it stays correct after midnight. */
-    const todayReferenceIso = (() => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        return toDateOnlyISOStringFromLocal(d);
-    })();
-
     const { data, loading, refetch } = useQuery(GET_USERS);
     const { data: teamScheduleData, loading: teamScheduleLoading } = useQuery(
-        GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE,
+        GET_TEAM_WORK_SCHEDULES,
         {
-            variables: { referenceDate: todayReferenceIso },
             skip: !showTeamSchedule,
             fetchPolicy: 'cache-and-network',
         },
@@ -56,23 +46,23 @@ export default function EmployeesPage() {
 
     const users = data?.users || [];
 
-    const planByUserId = useMemo(() => {
+    const scheduleByUserId = useMemo(() => {
         const rows =
-            (teamScheduleData?.teamWeeklyScheduleForDate as
-                | Array<{ user: { id: string }; plan: WeeklyPlanLike | null }>
+            (teamScheduleData?.teamWorkSchedules as
+                | Array<{ user: { id: string }; schedule: WorkScheduleLike }>
                 | undefined) ?? [];
-        const m = new Map<string, WeeklyPlanLike | null>();
+        const m = new Map<string, WorkScheduleLike>();
         for (const row of rows) {
-            m.set(row.user.id, row.plan);
+            m.set(row.user.id, row.schedule);
         }
         return m;
     }, [teamScheduleData]);
 
     const scheduleActiveForUser = (userId: string): boolean | null => {
         if (!showTeamSchedule) return null;
-        const plan = planByUserId.get(userId);
-        if (!plan) return false;
-        return isPlanActiveNow(plan, new Date());
+        const schedule = scheduleByUserId.get(userId);
+        if (!schedule) return false;
+        return isScheduleActiveNow(schedule, new Date());
     };
 
     const handleEmployeeAdded = () => {
@@ -215,13 +205,27 @@ export default function EmployeesPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            {showTeamSchedule && (
+                                                <button
+                                                    type="button"
+                                                    title="Work schedule"
+                                                    className="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 mr-3"
+                                                    onClick={() =>
+                                                        setScheduleModalUser({ id: user.id, name: user.name })
+                                                    }
+                                                >
+                                                    <CalendarDaysIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
                                             <button
+                                                type="button"
                                                 className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3"
                                                 onClick={() => openEditModal(user)}
                                             >
                                                 <PencilIcon className="h-4 w-4" />
                                             </button>
                                             <button
+                                                type="button"
                                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                                 onClick={() => openDeleteConfirm(user)}
                                             >
@@ -248,6 +252,36 @@ export default function EmployeesPage() {
                 onEmployeeUpdated={handleEmployeeUpdated}
                 employee={selectedEmployee}
             />
+
+            {scheduleModalUser && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-screen items-center justify-center p-4">
+                        <div
+                            className="fixed inset-0 bg-black/40"
+                            onClick={() => setScheduleModalUser(null)}
+                            aria-hidden
+                        />
+                        <div className="relative w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800 max-h-[90vh] overflow-y-auto">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Work schedule
+                                </h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setScheduleModalUser(null)}
+                                    className="text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <WorkScheduleEditor
+                                targetUserId={scheduleModalUser.id}
+                                targetName={scheduleModalUser.name}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm.show && (

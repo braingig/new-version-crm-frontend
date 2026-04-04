@@ -744,17 +744,14 @@ export const MARK_ALL_NOTIFICATIONS_AS_READ = gql`
   }
 `;
 
-export const GET_MY_WEEKLY_WORK_PLAN_FOR_DATE = gql`
-  query GetMyWeeklyWorkPlanForDate($referenceDate: DateTime!) {
-    myWeeklyWorkPlanForDate(referenceDate: $referenceDate) {
-      id
+export const GET_WORK_SCHEDULE = gql`
+  query GetWorkSchedule($userId: String) {
+    workSchedule(userId: $userId) {
       userId
-      weekStart
       weekendDays
       updatedAt
-      slots {
+      intervals {
         id
-        dayOfWeek
         startMinutes
         endMinutes
       }
@@ -762,23 +759,20 @@ export const GET_MY_WEEKLY_WORK_PLAN_FOR_DATE = gql`
   }
 `;
 
-export const GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE = gql`
-  query GetTeamWeeklyScheduleForDate($referenceDate: DateTime!) {
-    teamWeeklyScheduleForDate(referenceDate: $referenceDate) {
+export const GET_TEAM_WORK_SCHEDULES = gql`
+  query GetTeamWorkSchedules {
+    teamWorkSchedules {
       user {
         id
         name
         email
       }
-      plan {
-        id
+      schedule {
         userId
-        weekStart
         weekendDays
         updatedAt
-        slots {
+        intervals {
           id
-          dayOfWeek
           startMinutes
           endMinutes
         }
@@ -787,17 +781,14 @@ export const GET_TEAM_WEEKLY_SCHEDULE_FOR_DATE = gql`
   }
 `;
 
-export const SET_WEEKLY_WORK_PLAN = gql`
-  mutation SetWeeklyWorkPlan($input: SetWeeklyWorkPlanInput!) {
-    setWeeklyWorkPlan(input: $input) {
-      id
+export const SET_MY_WORK_SCHEDULE = gql`
+  mutation SetMyWorkSchedule($input: SetWorkScheduleInput!) {
+    setMyWorkSchedule(input: $input) {
       userId
-      weekStart
       weekendDays
       updatedAt
-      slots {
+      intervals {
         id
-        dayOfWeek
         startMinutes
         endMinutes
       }
@@ -805,8 +796,17 @@ export const SET_WEEKLY_WORK_PLAN = gql`
   }
 `;
 
-export const DELETE_WEEKLY_WORK_PLAN = gql`
-  mutation DeleteWeeklyWorkPlan($weekStart: DateTime!) {
-    deleteWeeklyWorkPlan(weekStart: $weekStart)
+export const SET_USER_WORK_SCHEDULE = gql`
+  mutation SetUserWorkSchedule($userId: String!, $input: SetWorkScheduleInput!) {
+    setUserWorkSchedule(userId: $userId, input: $input) {
+      userId
+      weekendDays
+      updatedAt
+      intervals {
+        id
+        startMinutes
+        endMinutes
+      }
+    }
   }
 `;

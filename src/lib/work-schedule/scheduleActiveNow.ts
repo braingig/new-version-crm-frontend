@@ -1,85 +1,31 @@
-import { addDays } from 'date-fns';
-
-/** Minimal plan shape for “within scheduled hours right now” checks (matches team schedule query). */
-export type WeeklyPlanLike = {
-    weekStart: string;
+/** Shape returned by work schedule / team schedule queries (same hours every working day). */
+export type WorkScheduleLike = {
     weekendDays: number[];
-    slots: { dayOfWeek: number; startMinutes: number; endMinutes: number }[];
+    intervals: { startMinutes: number; endMinutes: number }[];
 };
 
-export function toDateOnlyISOStringFromLocal(localMidnight: Date): string {
-    return new Date(
-        Date.UTC(
-            localMidnight.getFullYear(),
-            localMidnight.getMonth(),
-            localMidnight.getDate(),
-        ),
-    ).toISOString();
-}
+/** @deprecated Use WorkScheduleLike */
+export type WeeklyPlanLike = WorkScheduleLike;
 
-function startOfLocalDay(d: Date): Date {
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-function nextIsoDay(iso: number): number {
-    return iso === 7 ? 1 : iso + 1;
-}
-
-/** First working day after the weekend block (ISO weekday 1–7). */
-export function computeWorkWeekStartDay(weekendDays: number[]): number {
-    const isWeekend: boolean[] = Array.from({ length: 8 }, () => false);
-    for (const d of weekendDays) isWeekend[d] = true;
-
-    const boundaries: number[] = [];
-    for (let dayIso = 1; dayIso <= 7; dayIso++) {
-        const isBoundaryEnd = isWeekend[dayIso] && !isWeekend[nextIsoDay(dayIso)];
-        if (isBoundaryEnd) boundaries.push(dayIso);
-    }
-
-    if (boundaries.length !== 1) {
-        throw new Error(
-            'weekendDays must form one consecutive block (e.g. Fri or Fri-Sat or Sat-Sun).',
-        );
-    }
-    const endWeekendDay = boundaries[0];
-    return nextIsoDay(endWeekendDay);
+export function isoDayFromLocal(date: Date): number {
+    const js = date.getDay();
+    return js === 0 ? 7 : js;
 }
 
 /**
- * True when `now` (local clock) falls inside any slot for today’s calendar day,
- * for the plan week that covers today — same rules as the team schedule “Active” filter.
+ * True when `now` falls inside any interval for today, and today is not a weekend day.
+ * Intervals apply identically to every non-weekend day.
  */
-export function isPlanActiveNow(plan: WeeklyPlanLike, now: Date): boolean {
-    const planWeekStart = new Date(plan.weekStart);
-    const planWeekStartLocal = new Date(
-        planWeekStart.getUTCFullYear(),
-        planWeekStart.getUTCMonth(),
-        planWeekStart.getUTCDate(),
-    );
-    const todayStart = startOfLocalDay(now);
-    const weekEnd = addDays(planWeekStartLocal, 6);
-    if (todayStart < planWeekStartLocal || todayStart > weekEnd) return false;
-
-    const idx = Math.round(
-        (todayStart.getTime() - planWeekStartLocal.getTime()) / (24 * 60 * 60 * 1000),
-    );
-    if (idx < 0 || idx > 6) return false;
-
-    let startDay = 1;
-    try {
-        startDay = computeWorkWeekStartDay(plan.weekendDays ?? []);
-    } catch {
-        startDay = 1;
-    }
-    const dayOrder = Array.from({ length: 7 }, (_, i) => ((startDay - 1 + i) % 7) + 1);
-    const iso = dayOrder[idx];
-    if ((plan.weekendDays ?? []).includes(iso)) return false;
-
+export function isScheduleActiveNow(schedule: WorkScheduleLike, now: Date): boolean {
+    const iso = isoDayFromLocal(now);
+    if ((schedule.weekendDays ?? []).includes(iso)) return false;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const daySlots = (plan.slots ?? []).filter((s) => s.dayOfWeek === iso);
-    if (daySlots.length === 0) return false;
-
-    return daySlots.some(
+    const intervals = schedule.intervals ?? [];
+    if (intervals.length === 0) return false;
+    return intervals.some(
         (s) => nowMinutes >= s.startMinutes && nowMinutes < s.endMinutes,
     );
 }
+
+/** @deprecated Use isScheduleActiveNow */
+export const isPlanActiveNow = isScheduleActiveNow;
