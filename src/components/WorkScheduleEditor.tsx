@@ -72,6 +72,31 @@ function newIntervalKey(): string {
     return `iv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function sortWeekendDays(days: number[]): number[] {
+    return [...days].sort((a, b) => a - b);
+}
+
+function weekendDaysEqual(a: number[], b: number[]): boolean {
+    const sa = sortWeekendDays(a);
+    const sb = sortWeekendDays(b);
+    if (sa.length !== sb.length) return false;
+    return sa.every((v, i) => v === sb[i]);
+}
+
+/** Compare interval lists; order does not matter (sorted by start). */
+function intervalsEqual(
+    a: { startMinutes: number; endMinutes: number }[],
+    b: { startMinutes: number; endMinutes: number }[],
+): boolean {
+    if (a.length !== b.length) return false;
+    const sa = [...a].sort((x, y) => x.startMinutes - y.startMinutes);
+    const sb = [...b].sort((x, y) => x.startMinutes - y.startMinutes);
+    return sa.every(
+        (row, i) =>
+            row.startMinutes === sb[i].startMinutes && row.endMinutes === sb[i].endMinutes,
+    );
+}
+
 export interface WorkScheduleEditorProps {
     /** When set, edits that user’s schedule (managers only; mutation setUserWorkSchedule). */
     targetUserId?: string;
@@ -121,8 +146,14 @@ export default function WorkScheduleEditor({
     const [weekendDays, setWeekendDays] = useState<number[]>([5]);
     const [draftIntervals, setDraftIntervals] = useState<DraftInterval[]>([]);
     const [weekendError, setWeekendError] = useState<string | null>(null);
+    /** False until local state has been synced from `schedule` (avoids a flash of “dirty” on load). */
+    const [hydratedFromSchedule, setHydratedFromSchedule] = useState(false);
 
     const saving = savingMine || savingUser;
+
+    useEffect(() => {
+        setHydratedFromSchedule(false);
+    }, [targetUserId]);
 
     useEffect(() => {
         if (!schedule) return;
@@ -140,6 +171,8 @@ export default function WorkScheduleEditor({
                 }),
             ),
         );
+        setWeekendError(null);
+        setHydratedFromSchedule(true);
     }, [schedule]);
 
     const toggleWeekend = useCallback((iso: number) => {
@@ -176,6 +209,29 @@ export default function WorkScheduleEditor({
         () => weekendError ?? validateWeekendDays(weekendDays),
         [weekendDays, weekendError],
     );
+
+    const isDirty = useMemo(() => {
+        if (!schedule || !hydratedFromSchedule) return false;
+        const savedWeekend = schedule.weekendDays?.length
+            ? sortWeekendDays(schedule.weekendDays)
+            : [5];
+        if (!weekendDaysEqual(weekendDays, savedWeekend)) return true;
+
+        const savedIntervals = (schedule.intervals ?? []).map(
+            (s: { startMinutes: number; endMinutes: number }) => ({
+                startMinutes: s.startMinutes,
+                endMinutes: s.endMinutes,
+            }),
+        );
+        const currentIntervals = draftIntervals.map((s) => ({
+            startMinutes: s.startMinutes,
+            endMinutes: s.endMinutes,
+        }));
+        return !intervalsEqual(currentIntervals, savedIntervals);
+    }, [schedule, hydratedFromSchedule, weekendDays, draftIntervals]);
+
+    const canSave =
+        hydratedFromSchedule && isDirty && !weekendErr && !saving;
 
     const handleSave = async () => {
         const wErr = validateWeekendDays(weekendDays);
@@ -332,8 +388,17 @@ export default function WorkScheduleEditor({
                 <button
                     type="button"
                     onClick={handleSave}
-                    disabled={saving || !!weekendErr}
-                    className="btn-primary disabled:opacity-50"
+                    disabled={!canSave}
+                    title={
+                        !hydratedFromSchedule
+                            ? 'Loading…'
+                            : !isDirty
+                              ? 'No changes to save'
+                              : weekendErr
+                                ? 'Fix weekend selection to save'
+                                : undefined
+                    }
+                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {saving ? 'Saving…' : 'Save schedule'}
                 </button>
