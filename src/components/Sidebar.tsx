@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/lib/store';
 import { getAllowedRoutes } from '@/lib/permissions';
+import { SmtpTestControl } from '@/components/SmtpTestControl';
 import Image from 'next/image';
 import logo from '../../public/images/logos/new-logo-blue.png'
 const allNavigation = [
@@ -78,6 +79,8 @@ export default function Sidebar() {
                         </li>
                     </ul>
                 </nav>
+
+                <SmtpTestControl className="mt-auto border-t border-gray-200 dark:border-gray-600 pt-4" />
             </div>
         </div>
     );
