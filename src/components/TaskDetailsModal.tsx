@@ -5,6 +5,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_TASK_DETAILS, GET_ACTIVE_TIME_ENTRY, GET_TIME_ENTRIES, START_TIME_ENTRY, STOP_TIME_ENTRY } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
+import { MentionFormattedText } from '@/components/MentionFormattedText';
 
 interface TaskDetailsModalProps {
     taskId: string | null;
@@ -151,7 +152,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                         Description
                                     </h3>
                                     <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                        {task.description}
+                                        <MentionFormattedText text={task.description} />
                                     </p>
                                 </div>
                             )}
@@ -161,7 +162,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                         Note
                                     </h3>
                                     <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                        {task.note}
+                                        <MentionFormattedText text={task.note} />
                                     </p>
                                 </div>
                             )}
@@ -316,8 +317,8 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                                     <span>{c.user?.name || 'Unknown'}</span>
                                                     <span>{new Date(c.createdAt).toLocaleString()}</span>
                                                 </div>
-                                                <p className="text-sm text-gray-800 dark:text-gray-100">
-                                                    {c.content}
+                                                <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
+                                                    <MentionFormattedText text={c.content} />
                                                 </p>
                                             </div>
                                         ))}

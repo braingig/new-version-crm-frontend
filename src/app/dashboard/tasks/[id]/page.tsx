@@ -41,6 +41,8 @@ import {
 } from 'date-fns';
 import { useState, useEffect, useMemo } from 'react';
 import TaskModal from '@/components/TaskModal';
+import { MentionFormattedText } from '@/components/MentionFormattedText';
+import { MentionTextarea } from '@/components/MentionTextarea';
 import { useAuthStore } from '@/lib/store';
 import { useToast } from '@/components/ToastProvider';
 
@@ -610,7 +612,7 @@ export default function TaskDetailsPage() {
                                 Description
                             </h2>
                             <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                {task.description}
+                                <MentionFormattedText text={task.description} />
                             </p>
                         </div>
                     )}
@@ -621,7 +623,7 @@ export default function TaskDetailsPage() {
                                 Note
                             </h2>
                             <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                {task.note}
+                                <MentionFormattedText text={task.note} />
                             </p>
                         </div>
                     )}
@@ -968,13 +970,15 @@ export default function TaskDetailsPage() {
                         </h2>
 
                         <form onSubmit={handleAddComment} className="mb-4">
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
+                            <div className="flex gap-2 items-end">
+                                <MentionTextarea
+                                    wrapperClassName="flex-1 min-w-0"
+                                    users={users}
                                     value={newComment}
                                     onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Add a comment..."
-                                    className="input flex-1"
+                                    placeholder="Add a comment… Type @ for suggestions."
+                                    rows={2}
+                                    className="input min-h-[2.75rem] w-full resize-y"
                                     disabled={addingComment}
                                 />
                                 <button
@@ -1009,7 +1013,7 @@ export default function TaskDetailsPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                            {comment.content}
+                                            <MentionFormattedText text={comment.content} />
                                         </p>
                                     </div>
                                 ))

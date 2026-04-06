@@ -35,6 +35,7 @@ import {
     DELETE_TASK_LIST,
 } from '@/lib/graphql/queries';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { MentionFormattedText } from '@/components/MentionFormattedText';
 
 const priorityColors: { [key: string]: string } = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -224,7 +225,7 @@ const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtas
                 <>
                     {task.description && (
                         <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
-                            {task.description}
+                            <MentionFormattedText text={task.description} />
                         </p>
                     )}
                     <div className="flex items-center justify-between mb-2">
@@ -481,7 +482,11 @@ const TaskCard = ({ task }: { task: any }) => {
     return (
         <div className="rounded-lg shadow-lg border-2 border-primary-400 bg-white dark:bg-gray-800 p-4 opacity-95">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2">{task.title}</h3>
-            {task.description && <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">{task.description}</p>}
+            {task.description && (
+                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
+                    <MentionFormattedText text={task.description} />
+                </p>
+            )}
             <div className="flex items-center justify-between">
                 <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${priorityColors[task.priority] || priorityColors.MEDIUM}`}>{task.priority}</span>
                 {task.dueDate && (
