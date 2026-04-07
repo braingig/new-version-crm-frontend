@@ -116,9 +116,21 @@ export default function TaskModal({
             if (formData.assigneeIds.length > 0 && !submitData.assignedToId) {
                 submitData.assignedToId = formData.assigneeIds[0];
             }
-        } else if (formData.assigneeIds?.length) {
-            submitData.assigneeIds = formData.assigneeIds;
-            if (!submitData.assignedToId) submitData.assignedToId = formData.assigneeIds[0];
+        } else {
+            // Create: always send assigneeIds when anyone is assigned so the API runs
+            // taskAssignee rows + assignment notifications in one consistent path.
+            const ids =
+                formData.assigneeIds?.length > 0
+                    ? formData.assigneeIds
+                    : formData.assignedToId
+                      ? [formData.assignedToId]
+                      : [];
+            if (ids.length > 0) {
+                submitData.assigneeIds = ids;
+                if (!submitData.assignedToId) {
+                    submitData.assignedToId = ids[0];
+                }
+            }
         }
         if (formData.dueDate) {
             const dueDate = new Date(formData.dueDate);
