@@ -10,30 +10,21 @@ export default function WorkSchedulePage() {
     const showTeamOverview = canViewTeamWorkSchedule(role);
 
     return (
-        <div className={showTeamOverview ? 'max-w-6xl space-y-10' : 'max-w-3xl'}>
+        <div className={showTeamOverview ? 'max-w-6xl space-y-6' : 'max-w-3xl space-y-6'}>
             <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Work schedule</h1>
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    {showTeamOverview
-                        ? 'Review everyone’s weekend and working hours. Use Edit to change a user’s schedule, or adjust your own below.'
-                        : 'Set your weekend days and your recurring working hours once. They apply every week the same way.'}
-                </p>
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Work schedule</h1>
             </div>
 
             {showTeamOverview && (
                 <section>
-                    <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-                        Team schedules
-                    </h2>
+                    <h2 className="mb-3 text-lg font-medium text-gray-900 dark:text-white">Team</h2>
                     <TeamWorkScheduleOverview />
                 </section>
             )}
 
             <section>
                 {showTeamOverview && (
-                    <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-                        Your schedule
-                    </h2>
+                    <h2 className="mb-3 text-lg font-medium text-gray-900 dark:text-white">You</h2>
                 )}
                 <div className="card p-6">
                     <WorkScheduleEditor refetchTeamAfterMineSave={showTeamOverview} />

@@ -426,11 +426,28 @@ export default function TaskDetailsPage() {
         );
     }
 
-    if (error || !task) {
+    if (!task) {
+        return (
+            <div className="card text-center py-12">
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    This task is no longer available. It may have been deleted.
+                </p>
+                <Link
+                    href="/dashboard/tasks"
+                    className="btn-primary inline-flex items-center gap-2"
+                >
+                    <ArrowLeftIcon className="h-5 w-5" />
+                    Back to Tasks
+                </Link>
+            </div>
+        );
+    }
+
+    if (error) {
         return (
             <div className="card text-center py-12">
                 <p className="text-red-600 dark:text-red-400 mb-4">
-                    {error?.message || 'Task not found'}
+                    Could not load this task right now.
                 </p>
                 <Link
                     href="/dashboard/tasks"
