@@ -58,6 +58,20 @@ const statusBadgeColors: { [key: string]: string } = {
     COMPLETED: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
 };
 
+function getTaskAssignees(task: any, users: any[]): { id: string; name: string; email?: string }[] {
+    const map = new Map<string, { id: string; name: string; email?: string }>();
+    (task?.assignees ?? []).forEach((u: any) => {
+        if (u?.id) map.set(u.id, { id: u.id, name: u.name, email: u.email });
+    });
+    if (task?.assignedToId) {
+        const fallback = users.find((u: any) => u.id === task.assignedToId);
+        if (fallback?.id) {
+            map.set(fallback.id, { id: fallback.id, name: fallback.name, email: fallback.email });
+        }
+    }
+    return [...map.values()];
+}
+
 /** Flattens parent and nested subTasks into one array; adds _parentTitle for subtasks. */
 function flattenTasks(tasks: any[]): any[] {
     const out: any[] = [];
@@ -1293,8 +1307,14 @@ export default function TasksPage() {
                                                             {task.title}
                                                         </td>
                                                         <td className="px-4 py-2 text-sm text-gray-600">
-                                                            {users.find((u: any) => u.id === task.assignedToId)?.name ||
-                                                                'Unassigned'}
+                                                            {(() => {
+                                                                const assignees = getTaskAssignees(task, users);
+                                                                if (assignees.length === 0) return 'Unassigned';
+                                                                if (assignees.length <= 2) {
+                                                                    return assignees.map((a) => a.name).join(', ');
+                                                                }
+                                                                return `${assignees[0].name}, ${assignees[1].name} +${assignees.length - 2}`;
+                                                            })()}
                                                         </td>
                                                         <td className="px-4 py-2 text-sm text-gray-600">
                                                             {task.dueDate

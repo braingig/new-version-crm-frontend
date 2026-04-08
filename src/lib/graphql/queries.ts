@@ -150,6 +150,11 @@ export const GET_TASKS = gql`
         id
         name
       }
+      assignees {
+        id
+        name
+        email
+      }
       subTasks {
         id
         title
@@ -179,6 +184,11 @@ export const GET_TASKS = gql`
           listId
           assignedToId
           parentTaskId
+        }
+        assignees {
+          id
+          name
+          email
         }
       }
     }
@@ -597,6 +607,54 @@ export const GET_TIME_ENTRIES = gql`
         email
       }
     }
+  }
+`;
+
+export const ADMIN_CREATE_MANUAL_TIME_ENTRY = gql`
+  mutation AdminCreateManualTimeEntry($input: AdminCreateManualTimeEntryInput!) {
+    adminCreateManualTimeEntry(input: $input) {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+      employee {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const ADMIN_UPDATE_TIME_ENTRY = gql`
+  mutation AdminUpdateTimeEntry($id: String!, $input: AdminUpdateTimeEntryInput!) {
+    adminUpdateTimeEntry(id: $id, input: $input) {
+      id
+      startTime
+      endTime
+      duration
+      description
+      taskId
+      employeeId
+      isManual
+      createdAt
+      employee {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const ADMIN_DELETE_TIME_ENTRY = gql`
+  mutation AdminDeleteTimeEntry($id: String!) {
+    adminDeleteTimeEntry(id: $id)
   }
 `;
 

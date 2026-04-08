@@ -15,6 +15,9 @@ import {
     GET_ACTIVE_TIME_ENTRY,
     START_TIME_ENTRY,
     STOP_TIME_ENTRY,
+    ADMIN_CREATE_MANUAL_TIME_ENTRY,
+    ADMIN_UPDATE_TIME_ENTRY,
+    ADMIN_DELETE_TIME_ENTRY,
 } from '@/lib/graphql/queries';
 import {
     ArrowLeftIcon,
@@ -72,6 +75,14 @@ export default function TaskDetailsPage() {
     const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showTimeEntryModal, setShowTimeEntryModal] = useState(false);
+    const [editingTimeEntry, setEditingTimeEntry] = useState<any | null>(null);
+    const [timeEntryForm, setTimeEntryForm] = useState({
+        employeeId: '',
+        startTime: '',
+        endTime: '',
+        description: '',
+    });
     const [timeEntriesFilter, setTimeEntriesFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
     const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
     const [totalsRange, setTotalsRange] = useState<'week' | 'month'>('week');
@@ -126,6 +137,13 @@ export default function TaskDetailsPage() {
 
     const [startTimeEntry, { loading: starting }] = useMutation(START_TIME_ENTRY);
     const [stopTimeEntry, { loading: stopping }] = useMutation(STOP_TIME_ENTRY);
+    const [adminCreateManualTimeEntry, { loading: savingManualEntry }] = useMutation(
+        ADMIN_CREATE_MANUAL_TIME_ENTRY,
+    );
+    const [adminUpdateTimeEntry] = useMutation(ADMIN_UPDATE_TIME_ENTRY);
+    const [adminDeleteTimeEntry] = useMutation(ADMIN_DELETE_TIME_ENTRY);
+
+    const isAdmin = currentUser?.role === 'ADMIN';
 
     const handleStatusChange = (newStatus: string) => {
         setStatusDropdownOpen(false);
@@ -380,6 +398,21 @@ export default function TaskDetailsPage() {
             .sort((a, b) => b.totalSeconds - a.totalSeconds);
     }, [timeEntries, users]);
 
+    const taskAssignees = useMemo(() => {
+        const out = new Map<string, { id: string; name: string; email?: string }>();
+        (task?.assignees ?? []).forEach((u: any) => {
+            if (u?.id) out.set(u.id, { id: u.id, name: u.name, email: u.email });
+        });
+        if (task?.assignedTo?.id) {
+            out.set(task.assignedTo.id, {
+                id: task.assignedTo.id,
+                name: task.assignedTo.name,
+                email: task.assignedTo.email,
+            });
+        }
+        return [...out.values()];
+    }, [task]);
+
     const handleStartTimer = async () => {
         if (!taskId) return;
         try {
@@ -407,6 +440,89 @@ export default function TaskDetailsPage() {
         } catch (e) {
             console.error('Failed to stop timer', e);
             showToast({ variant: 'error', message: (e as any)?.message || 'Failed to stop timer.' });
+        }
+    };
+
+    const toDateTimeLocal = (dateLike?: string | Date | null) => {
+        if (!dateLike) return '';
+        const d = new Date(dateLike);
+        if (Number.isNaN(d.getTime())) return '';
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    const openCreateTimeEntryModal = () => {
+        setEditingTimeEntry(null);
+        setTimeEntryForm({
+            employeeId: users[0]?.id ?? '',
+            startTime: toDateTimeLocal(new Date()),
+            endTime: toDateTimeLocal(new Date()),
+            description: '',
+        });
+        setShowTimeEntryModal(true);
+    };
+
+    const openEditTimeEntryModal = (entry: any) => {
+        setEditingTimeEntry(entry);
+        setTimeEntryForm({
+            employeeId: entry.employeeId ?? '',
+            startTime: toDateTimeLocal(entry.startTime),
+            endTime: toDateTimeLocal(entry.endTime),
+            description: entry.description ?? '',
+        });
+        setShowTimeEntryModal(true);
+    };
+
+    const handleSaveTimeEntry = async () => {
+        try {
+            if (!isAdmin) return;
+            if (!timeEntryForm.employeeId || !timeEntryForm.startTime || !timeEntryForm.endTime) {
+                showToast({ variant: 'error', message: 'Employee, start time and end time are required.' });
+                return;
+            }
+            if (new Date(timeEntryForm.endTime) <= new Date(timeEntryForm.startTime)) {
+                showToast({ variant: 'error', message: 'End time must be after start time.' });
+                return;
+            }
+
+            const baseInput = {
+                employeeId: timeEntryForm.employeeId,
+                taskId,
+                startTime: new Date(timeEntryForm.startTime).toISOString(),
+                endTime: new Date(timeEntryForm.endTime).toISOString(),
+                description: timeEntryForm.description?.trim() || undefined,
+            };
+
+            if (editingTimeEntry?.id) {
+                await adminUpdateTimeEntry({
+                    variables: {
+                        id: editingTimeEntry.id,
+                        input: baseInput,
+                    },
+                });
+                showToast({ variant: 'success', message: 'Time entry updated.' });
+            } else {
+                await adminCreateManualTimeEntry({
+                    variables: { input: baseInput },
+                });
+                showToast({ variant: 'success', message: 'Manual time entry added.' });
+            }
+            setShowTimeEntryModal(false);
+            await Promise.all([refetchTimeEntries(), refetch()]);
+        } catch (e: any) {
+            showToast({ variant: 'error', message: e?.message || 'Failed to save time entry.' });
+        }
+    };
+
+    const handleDeleteTimeEntry = async (entryId: string) => {
+        if (!isAdmin) return;
+        if (!window.confirm('Delete this time entry?')) return;
+        try {
+            await adminDeleteTimeEntry({ variables: { id: entryId } });
+            showToast({ variant: 'success', message: 'Time entry deleted.' });
+            await Promise.all([refetchTimeEntries(), refetch()]);
+        } catch (e: any) {
+            showToast({ variant: 'error', message: e?.message || 'Failed to delete time entry.' });
         }
     };
 
@@ -783,8 +899,11 @@ export default function TaskDetailsPage() {
                             </div>
                         ) : (
                             <p className="text-sm text-gray-500 dark:text-gray-400 py-3">
-                                No time logged yet. Assignee: {task?.assignedTo ? (
-                                    <span className="font-medium text-gray-900 dark:text-white">{task.assignedTo.name}</span>
+                                No time logged yet. Assignee{taskAssignees.length > 1 ? 's' : ''}:{' '}
+                                {taskAssignees.length > 0 ? (
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                        {taskAssignees.map((u) => u.name).join(', ')}
+                                    </span>
                                 ) : (
                                     <span>Not assigned</span>
                                 )}
@@ -799,6 +918,15 @@ export default function TaskDetailsPage() {
                                 <ClockIcon className="h-5 w-5 text-primary-600" />
                                 Today&apos;s time entries ({todayEntries.length})
                             </h2>
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    onClick={openCreateTimeEntryModal}
+                                    className="inline-flex items-center rounded-md bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+                                >
+                                    Add manual entry
+                                </button>
+                            )}
                         </div>
                         {todayEntries.length > 0 ? (
                             <div className="overflow-x-auto -mx-4 sm:mx-0 overflow-y-auto max-h-[320px] border border-gray-200 dark:border-gray-600 rounded-lg">
@@ -825,6 +953,11 @@ export default function TaskDetailsPage() {
                                             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                                                 Status
                                             </th>
+                                            {isAdmin && (
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                    Actions
+                                                </th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 dark:divide-gray-600 bg-white dark:bg-gray-800">
@@ -861,6 +994,26 @@ export default function TaskDetailsPage() {
                                                         {entry.endTime ? 'Completed' : 'Active'}
                                                     </span>
                                                 </td>
+                                                {isAdmin && (
+                                                    <td className="px-4 py-2 text-right">
+                                                        <div className="inline-flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openEditTimeEntryModal(entry)}
+                                                                className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteTimeEntry(entry.id)}
+                                                                className="text-xs font-medium text-red-600 hover:text-red-700"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1155,6 +1308,111 @@ export default function TaskDetailsPage() {
                     )}
                 </div>
             </div>
+
+            {showTimeEntryModal && isAdmin && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-screen items-center justify-center p-4">
+                        <div
+                            className="fixed inset-0 bg-black/30"
+                            onClick={() => setShowTimeEntryModal(false)}
+                            aria-hidden="true"
+                        />
+                        <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {editingTimeEntry ? 'Edit time entry' : 'Add manual time entry'}
+                            </h3>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                Admin action for task timer records.
+                            </p>
+
+                            <div className="mt-4 space-y-4">
+                                <div>
+                                    <label className="label">Employee</label>
+                                    <select
+                                        value={timeEntryForm.employeeId}
+                                        onChange={(e) =>
+                                            setTimeEntryForm((prev) => ({
+                                                ...prev,
+                                                employeeId: e.target.value,
+                                            }))
+                                        }
+                                        className="input"
+                                    >
+                                        <option value="">Select employee</option>
+                                        {users.map((u: any) => (
+                                            <option key={u.id} value={u.id}>
+                                                {u.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label className="label">Start</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={timeEntryForm.startTime}
+                                            onChange={(e) =>
+                                                setTimeEntryForm((prev) => ({
+                                                    ...prev,
+                                                    startTime: e.target.value,
+                                                }))
+                                            }
+                                            className="input"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="label">End</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={timeEntryForm.endTime}
+                                            onChange={(e) =>
+                                                setTimeEntryForm((prev) => ({
+                                                    ...prev,
+                                                    endTime: e.target.value,
+                                                }))
+                                            }
+                                            className="input"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="label">Description</label>
+                                    <textarea
+                                        rows={2}
+                                        value={timeEntryForm.description}
+                                        onChange={(e) =>
+                                            setTimeEntryForm((prev) => ({
+                                                ...prev,
+                                                description: e.target.value,
+                                            }))
+                                        }
+                                        className="input"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTimeEntryModal(false)}
+                                    className="btn-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveTimeEntry}
+                                    disabled={savingManualEntry}
+                                    className="btn-primary"
+                                >
+                                    {savingManualEntry ? 'Saving...' : editingTimeEntry ? 'Update entry' : 'Add entry'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Delete confirmation modal */}
             {deleteConfirm && (
