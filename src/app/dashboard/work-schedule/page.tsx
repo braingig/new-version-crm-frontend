@@ -10,7 +10,7 @@ export default function WorkSchedulePage() {
     const showTeamOverview = canViewTeamWorkSchedule(role);
 
     return (
-        <div className="mx-auto max-w-5xl space-y-10 px-0">
+        <div className="mx-auto space-y-10 px-0">
             <header className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-widest text-primary-600 dark:text-primary-400">
                     Availability
