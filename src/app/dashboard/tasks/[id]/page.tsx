@@ -87,6 +87,9 @@ export default function TaskDetailsPage() {
     const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
     const [totalsRange, setTotalsRange] = useState<'week' | 'month'>('week');
     const [totalsMonth, setTotalsMonth] = useState(() => format(new Date(), 'yyyy-MM'));
+    const [showDayEntriesModal, setShowDayEntriesModal] = useState(false);
+    const [dayEntriesModalTitle, setDayEntriesModalTitle] = useState('');
+    const [dayEntries, setDayEntries] = useState<any[]>([]);
 
     const { data, loading, error, refetch } = useQuery(GET_TASK_DETAILS, {
         variables: { id: taskId },
@@ -323,6 +326,7 @@ export default function TaskDetailsPage() {
                 totalSeconds: number;
                 count: number;
                 byAssignee: Array<{ employeeId: string; name: string; email?: string; totalSeconds: number }>;
+                entries: any[];
             }
         >();
 
@@ -348,11 +352,13 @@ export default function TaskDetailsPage() {
                     totalSeconds: 0,
                     count: 0,
                     byAssignee: [],
+                    entries: [],
                 });
             }
             const bucket = byDay.get(key)!;
             bucket.totalSeconds += durationSeconds;
             bucket.count += 1;
+            bucket.entries.push(entry);
 
             const existing = bucket.byAssignee.find((a) => a.employeeId === employeeId);
             if (existing) {
@@ -463,6 +469,8 @@ export default function TaskDetailsPage() {
     };
 
     const openEditTimeEntryModal = (entry: any) => {
+        // Ensure edit modal is never hidden behind day-entries modal.
+        setShowDayEntriesModal(false);
         setEditingTimeEntry(entry);
         setTimeEntryForm({
             employeeId: entry.employeeId ?? '',
@@ -524,6 +532,15 @@ export default function TaskDetailsPage() {
         } catch (e: any) {
             showToast({ variant: 'error', message: e?.message || 'Failed to delete time entry.' });
         }
+    };
+
+    const openDayEntries = (day: { date: Date; entries: any[] }) => {
+        const sorted = [...(day.entries ?? [])].sort(
+            (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
+        );
+        setDayEntries(sorted);
+        setDayEntriesModalTitle(format(day.date, 'MMM d, yyyy'));
+        setShowDayEntriesModal(true);
     };
 
     if (!taskId) {
@@ -1098,7 +1115,18 @@ export default function TaskDetailsPage() {
                                                     {formatDuration(day.totalSeconds)}
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
-                                                    {day.count}
+                                                    {isAdmin ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openDayEntries(day as any)}
+                                                            className="rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 dark:border-primary-800/60 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:bg-primary-900/35"
+                                                            title="View entries for this day"
+                                                        >
+                                                            {day.count} {day.count === 1 ? 'entry' : 'entries'}
+                                                        </button>
+                                                    ) : (
+                                                        day.count
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                                                     {day.byAssignee.length > 0 ? (
@@ -1310,89 +1338,103 @@ export default function TaskDetailsPage() {
             </div>
 
             {showTimeEntryModal && isAdmin && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex min-h-screen items-center justify-center p-4">
+                <div className="fixed inset-0 z-[70] overflow-y-auto">
+                    <div className="flex min-h-screen items-end justify-center p-4 sm:items-center">
                         <div
-                            className="fixed inset-0 bg-black/30"
+                            className="fixed inset-0 bg-black/40 backdrop-blur-[2px]"
                             onClick={() => setShowTimeEntryModal(false)}
                             aria-hidden="true"
                         />
-                        <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {editingTimeEntry ? 'Edit time entry' : 'Add manual time entry'}
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Admin action for task timer records.
-                            </p>
+                        <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-900 dark:ring-white/10">
+                            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                                <div className="min-w-0">
+                                    <h3 className="truncate text-lg font-semibold text-gray-900 dark:text-white">
+                                        {editingTimeEntry ? 'Edit time entry' : 'Add manual time entry'}
+                                    </h3>
+                                    <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                                        Admin action for task timer records.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowTimeEntryModal(false)}
+                                    className="rounded-lg px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                                    aria-label="Close"
+                                >
+                                    ✕
+                                </button>
+                            </div>
 
-                            <div className="mt-4 space-y-4">
-                                <div>
-                                    <label className="label">Employee</label>
-                                    <select
-                                        value={timeEntryForm.employeeId}
-                                        onChange={(e) =>
-                                            setTimeEntryForm((prev) => ({
-                                                ...prev,
-                                                employeeId: e.target.value,
-                                            }))
-                                        }
-                                        className="input"
-                                    >
-                                        <option value="">Select employee</option>
-                                        {users.map((u: any) => (
-                                            <option key={u.id} value={u.id}>
-                                                {u.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="label">Start</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={timeEntryForm.startTime}
+                                        <label className="label">Employee</label>
+                                        <select
+                                            value={timeEntryForm.employeeId}
                                             onChange={(e) =>
                                                 setTimeEntryForm((prev) => ({
                                                     ...prev,
-                                                    startTime: e.target.value,
+                                                    employeeId: e.target.value,
+                                                }))
+                                            }
+                                            className="input"
+                                        >
+                                            <option value="">Select employee</option>
+                                            {users.map((u: any) => (
+                                                <option key={u.id} value={u.id}>
+                                                    {u.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="label">Start</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={timeEntryForm.startTime}
+                                                onChange={(e) =>
+                                                    setTimeEntryForm((prev) => ({
+                                                        ...prev,
+                                                        startTime: e.target.value,
+                                                    }))
+                                                }
+                                                className="input"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="label">End</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={timeEntryForm.endTime}
+                                                onChange={(e) =>
+                                                    setTimeEntryForm((prev) => ({
+                                                        ...prev,
+                                                        endTime: e.target.value,
+                                                    }))
+                                                }
+                                                className="input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="label">Description</label>
+                                        <textarea
+                                            rows={3}
+                                            value={timeEntryForm.description}
+                                            onChange={(e) =>
+                                                setTimeEntryForm((prev) => ({
+                                                    ...prev,
+                                                    description: e.target.value,
                                                 }))
                                             }
                                             className="input"
                                         />
                                     </div>
-                                    <div>
-                                        <label className="label">End</label>
-                                        <input
-                                            type="datetime-local"
-                                            value={timeEntryForm.endTime}
-                                            onChange={(e) =>
-                                                setTimeEntryForm((prev) => ({
-                                                    ...prev,
-                                                    endTime: e.target.value,
-                                                }))
-                                            }
-                                            className="input"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="label">Description</label>
-                                    <textarea
-                                        rows={2}
-                                        value={timeEntryForm.description}
-                                        onChange={(e) =>
-                                            setTimeEntryForm((prev) => ({
-                                                ...prev,
-                                                description: e.target.value,
-                                            }))
-                                        }
-                                        className="input"
-                                    />
                                 </div>
                             </div>
 
-                            <div className="mt-6 flex justify-end gap-3">
+                            <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-white/80 px-5 py-4 backdrop-blur dark:border-gray-800 dark:bg-gray-900/70">
                                 <button
                                     type="button"
                                     onClick={() => setShowTimeEntryModal(false)}
@@ -1452,6 +1494,116 @@ export default function TaskDetailsPage() {
                                     Delete
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Daily total -> entries modal (admin) */}
+            {showDayEntriesModal && isAdmin && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 py-6 backdrop-blur-[2px] sm:items-center">
+                    <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5 dark:border-gray-800 dark:bg-gray-900 dark:ring-white/10">
+                        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
+                            <div className="min-w-0">
+                                <h3 className="truncate text-lg font-semibold text-gray-900 dark:text-white">
+                                    Time entries for {dayEntriesModalTitle}
+                                </h3>
+                                <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                                    Admin can edit or delete any entry in this day.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowDayEntriesModal(false)}
+                                className="rounded-lg px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                                aria-label="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="max-h-[70vh] overflow-auto">
+                            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur dark:bg-gray-800/95">
+                                    <tr>
+                                        {hasSubtasks && (
+                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                                Task
+                                            </th>
+                                        )}
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                            Person
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                            Start
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                            End
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                            Duration
+                                        </th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-900">
+                                    {dayEntries.map((entry: any) => (
+                                        <tr key={entry.id}>
+                                            {hasSubtasks && (
+                                                <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                                                    {entry.taskId === taskId
+                                                        ? task.title
+                                                        : task.subTasks?.find((st: any) => st.id === entry.taskId)?.title ?? '-'}
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                {entry.employee?.name ??
+                                                    users.find((u: any) => u.id === entry.employeeId)?.name ??
+                                                    '—'}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                {entry.startTime ? format(new Date(entry.startTime), 'h:mm a') : '-'}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                {entry.endTime ? format(new Date(entry.endTime), 'h:mm a') : '-'}
+                                            </td>
+                                            <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                                {getEntryDuration(entry)}
+                                            </td>
+                                            <td className="px-4 py-2 text-right">
+                                                <div className="inline-flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openEditTimeEntryModal(entry)}
+                                                        className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteTimeEntry(entry.id)}
+                                                        className="text-xs font-medium text-red-600 hover:text-red-700"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {dayEntries.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={hasSubtasks ? 6 : 5}
+                                                className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400"
+                                            >
+                                                No entries found for this day.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
