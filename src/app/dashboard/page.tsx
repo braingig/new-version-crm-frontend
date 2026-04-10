@@ -26,6 +26,54 @@ interface StatItem {
 type DashboardViewMode = 'mine' | 'all';
 const DASHBOARD_VIEW_MODE_KEY = 'dashboard:viewMode';
 
+/** Flatten task tree (root tasks and nested subTasks) for admin summaries. */
+function collectAllTaskNodes(nodes: any[] | undefined, acc: any[] = []): any[] {
+    if (!nodes?.length) return acc;
+    for (const n of nodes) {
+        acc.push(n);
+        if (n.subTasks?.length) collectAllTaskNodes(n.subTasks, acc);
+    }
+    return acc;
+}
+
+function assigneeIdsForTask(task: any): string[] {
+    const ids = new Set<string>();
+    if (Array.isArray(task.assignees)) {
+        for (const u of task.assignees) {
+            if (u?.id) ids.add(u.id);
+        }
+    }
+    if (task.assignedToId) ids.add(task.assignedToId);
+    return Array.from(ids);
+}
+
+function dueDateDisplay(iso: string | null | undefined): { text: string; overdue: boolean } {
+    if (!iso) return { text: '—', overdue: false };
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return { text: '—', overdue: false };
+    const text = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfDue = new Date(d);
+    startOfDue.setHours(0, 0, 0, 0);
+    return { text, overdue: startOfDue < startOfToday };
+}
+
+function priorityPillClass(priority: string | undefined): string {
+    switch (priority) {
+        case 'URGENT':
+            return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        case 'HIGH':
+            return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
+        case 'MEDIUM':
+            return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        case 'LOW':
+            return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+        default:
+            return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+    }
+}
+
 function countOpenTasks(tasks: any[]): number {
     return tasks.reduce(
         (sum, t) =>
@@ -89,6 +137,57 @@ export default function DashboardPage() {
 
     const visibleTasks = viewMode === 'all' ? allTasks : myTasks;
     const hasNoAssignedItems = viewMode === 'mine' && visibleProjects.length === 0 && visibleTasks.length === 0;
+
+    /** Admin-only: one row per assignee with all in-progress tasks grouped. */
+    const adminInProgressByUser = useMemo(() => {
+        if (!isAdmin || !usersData?.users?.length) return [];
+
+        const userById = new Map<string, any>(
+            (usersData.users as any[]).map((u) => [u.id, u])
+        );
+        const flat = collectAllTaskNodes(allTasks);
+        const rows: {
+            userKey: string;
+            employeeName: string;
+            department: string | null;
+            tasks: any[];
+        }[] = [];
+        const rowByUser = new Map<string, number>();
+
+        for (const task of flat) {
+            if (task.status !== 'IN_PROGRESS') continue;
+            const ids = assigneeIdsForTask(task);
+            const targetIds = ids.length > 0 ? ids : ['__unassigned'];
+            for (const uid of targetIds) {
+                const u = userById.get(uid);
+                const existingIdx = rowByUser.get(uid);
+                if (existingIdx === undefined) {
+                    rows.push({
+                        userKey: uid,
+                        employeeName: uid === '__unassigned' ? 'Unassigned' : (u?.name ?? 'Unknown user'),
+                        department: uid === '__unassigned' ? null : (u?.department ?? null),
+                        tasks: [task],
+                    });
+                    rowByUser.set(uid, rows.length - 1);
+                } else {
+                    rows[existingIdx].tasks.push(task);
+                }
+            }
+        }
+
+        rows.sort((a, b) => {
+            const byEmp = a.employeeName.localeCompare(b.employeeName);
+            if (byEmp !== 0) return byEmp;
+            return a.tasks.length - b.tasks.length;
+        });
+
+        return rows;
+    }, [isAdmin, usersData?.users, allTasks]);
+
+    const adminInProgressPeopleCount = useMemo(
+        () => new Set(adminInProgressByUser.map((r) => r.userKey)).size,
+        [adminInProgressByUser]
+    );
 
     const stats = useMemo(() => {
         const totalEmployees = usersData?.users?.length ?? 0;
@@ -248,6 +347,135 @@ export default function DashboardPage() {
                     </div>
                 ))}
             </div>
+
+            {isAdmin && (
+                <div className="card mb-8">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                Team: tasks in progress
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                                Status is &quot;In progress&quot; — employee name is shown once, with their active tasks listed below.
+                            </p>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                            {adminInProgressByUser.length === 0 ? (
+                                'No tasks in this status right now'
+                            ) : (
+                                <>
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                        {adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0)}
+                                    </span>{' '}
+                                    task{adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0) === 1 ? '' : 's'} ·{' '}
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                        {adminInProgressPeopleCount}
+                                    </span>{' '}
+                                    people
+                                </>
+                            )}
+                        </p>
+                    </div>
+                    {adminInProgressByUser.length === 0 ? (
+                        <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-6">
+                            When someone moves a task to In progress, it will appear here with their name.
+                        </p>
+                    ) : (
+                        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table className="min-w-full text-sm">
+                                <thead className="bg-gray-50 dark:bg-gray-800/80">
+                                    <tr className="text-left text-gray-600 dark:text-gray-400">
+                                        <th className="py-3 px-4 font-medium whitespace-nowrap border-r border-gray-200 dark:border-gray-700">Employee</th>
+                                        <th className="py-3 px-4 font-medium min-w-[12rem]">Task</th>
+                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Project</th>
+                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Priority</th>
+                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Due</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white dark:bg-gray-900/40">
+                                    {adminInProgressByUser.map((row) => {
+                                        return row.tasks.map((task: any, idx: number) => {
+                                            const due = dueDateDisplay(task.dueDate);
+                                            const pri = task.priority as string | undefined;
+                                            return (
+                                                <tr
+                                                    key={`${row.userKey}__${task.id}`}
+                                                    className="border-t border-gray-100 dark:border-gray-700/80 align-top"
+                                                >
+                                                    {idx === 0 && (
+                                                        <td
+                                                            rowSpan={row.tasks.length}
+                                                            className="py-3 px-3 text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 align-middle"
+                                                        >
+                                                            <div className="mx-auto flex flex-col items-center justify-center gap-1 text-center">
+                                                                <div className="font-semibold whitespace-nowrap" title={row.employeeName}>
+                                                                    {row.employeeName}
+                                                                </div>
+                                                                {row.department && (
+                                                                    <div className="text-[10px] text-gray-500 dark:text-gray-500 leading-tight">
+                                                                        {row.department}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                    <td className="py-3 px-4">
+                                                        <Link
+                                                            href={`/dashboard/tasks/${task.id}`}
+                                                            className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                                                        >
+                                                            {task.title}
+                                                        </Link>
+                                                    </td>
+                                                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">
+                                                        {task.project?.name ? (
+                                                            <Link
+                                                                href={`/dashboard/projects/${task.project.id}`}
+                                                                className="hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
+                                                            >
+                                                                {task.project.name}
+                                                            </Link>
+                                                        ) : (
+                                                            <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <span
+                                                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${priorityPillClass(pri)}`}
+                                                        >
+                                                            {(pri ?? '—').replace('_', ' ')}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-4 whitespace-nowrap">
+                                                        {due.text === '—' ? (
+                                                            <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                        ) : (
+                                                            <span
+                                                                className={
+                                                                    due.overdue
+                                                                        ? 'text-red-600 dark:text-red-400 font-medium'
+                                                                        : 'text-gray-800 dark:text-gray-200'
+                                                                }
+                                                            >
+                                                                {due.text}
+                                                                {due.overdue && (
+                                                                    <span className="block text-xs font-normal text-red-500 dark:text-red-400/90">
+                                                                        Overdue
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
