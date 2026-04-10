@@ -260,41 +260,44 @@ export default function DashboardPage() {
     const recentTasks = visibleTasks.slice(0, 5);
 
     return (
-        <div>
-            <div className="mb-8">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            Overview of your projects and tasks
-                        </p>
-                    </div>
-                    <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-1">
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('mine')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                                viewMode === 'mine'
-                                    ? 'bg-primary-600 text-white'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
-                        >
-                            Assigned to me
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setViewMode('all')}
-                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                                viewMode === 'all'
-                                    ? 'bg-primary-600 text-white'
-                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                            }`}
-                        >
-                            Team view
-                        </button>
+        <div className="bg-gray-50/60 dark:bg-gray-950">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+                <div className="mb-8">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                                Dashboard
+                            </h1>
+                            <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+                                Overview of projects and tasks
+                            </p>
+                        </div>
+                        <div className="inline-flex rounded-full border border-gray-200/70 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 backdrop-blur px-1 py-1 shadow-sm">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('mine')}
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${
+                                    viewMode === 'mine'
+                                        ? 'bg-primary-600 text-white shadow-sm'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                                }`}
+                            >
+                                Assigned to me
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('all')}
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${
+                                    viewMode === 'all'
+                                        ? 'bg-primary-600 text-white shadow-sm'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                                }`}
+                            >
+                                Team view
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
             {hasNoAssignedItems && (
                 <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
@@ -303,12 +306,15 @@ export default function DashboardPage() {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                 {stats.map((stat) => (
-                    <div key={stat.name} className="card overflow-hidden">
+                    <div
+                        key={stat.name}
+                        className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm hover:shadow transition-shadow px-5 py-4"
+                    >
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
-                                <div className="rounded-lg bg-primary-100 dark:bg-primary-900/20 p-3">
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-3">
                                     <stat.icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
                                 </div>
                             </div>
@@ -321,7 +327,7 @@ export default function DashboardPage() {
                                         {stat.hint}
                                     </p>
                                 )}
-                                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                                <p className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
                                     {stat.value}
                                 </p>
                             </div>
@@ -349,16 +355,11 @@ export default function DashboardPage() {
             </div>
 
             {isAdmin && (
-                <div className="card mb-8">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4">
-                        <div>
+                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg p-3">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Team: tasks in progress
+                                Work in progress
                             </h2>
-                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                                Status is &quot;In progress&quot; — employee name is shown once, with their active tasks listed below.
-                            </p>
-                        </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
                             {adminInProgressByUser.length === 0 ? (
                                 'No tasks in this status right now'
@@ -381,9 +382,9 @@ export default function DashboardPage() {
                             When someone moves a task to In progress, it will appear here with their name.
                         </p>
                     ) : (
-                        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
                             <table className="min-w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-800/80">
+                                <thead className="bg-gray-50/80 dark:bg-gray-900/60">
                                     <tr className="text-left text-gray-600 dark:text-gray-400">
                                         <th className="py-3 px-4 font-medium whitespace-nowrap border-r border-gray-200 dark:border-gray-700">Employee</th>
                                         <th className="py-3 px-4 font-medium min-w-[12rem]">Task</th>
@@ -392,7 +393,7 @@ export default function DashboardPage() {
                                         <th className="py-3 px-4 font-medium whitespace-nowrap">Due</th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white dark:bg-gray-900/40">
+                                <tbody className="bg-white dark:bg-transparent">
                                     {adminInProgressByUser.map((row) => {
                                         return row.tasks.map((task: any, idx: number) => {
                                             const due = dueDateDisplay(task.dueDate);
@@ -480,8 +481,8 @@ export default function DashboardPage() {
             {/* Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recent Projects */}
-                <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                         {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
                     </h2>
                     <div className="space-y-3">
@@ -490,7 +491,7 @@ export default function DashboardPage() {
                                 <Link
                                     key={project.id}
                                     href={`/dashboard/projects/${project.id}`}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-gray-900 dark:text-white">
@@ -519,8 +520,8 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Recent Tasks */}
-                <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
                         {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
                     </h2>
                     <div className="space-y-3">
@@ -529,7 +530,7 @@ export default function DashboardPage() {
                                 <Link
                                     key={task.id}
                                     href={`/dashboard/tasks/${task.id}`}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
                                 >
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-medium text-gray-900 dark:text-white">
@@ -558,6 +559,7 @@ export default function DashboardPage() {
                         )}
                     </div>
                 </div>
+            </div>
             </div>
         </div>
     );

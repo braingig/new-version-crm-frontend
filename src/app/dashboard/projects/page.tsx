@@ -2,82 +2,34 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery, useMutation } from '@apollo/client';
-import { GET_PROJECTS, CREATE_PROJECT, DELETE_PROJECT } from '@/lib/graphql/queries';
+import { useRouter } from 'next/navigation';
+import { useQuery } from '@apollo/client';
+import { GET_PROJECTS, CREATE_PROJECT } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import { 
     FolderIcon, 
     PlusIcon, 
-    PencilIcon, 
-    TrashIcon, 
     CalendarIcon,
     CurrencyDollarIcon,
     UserGroupIcon,
     ClockIcon
 } from '@heroicons/react/24/outline';
 import AddProjectModal from '@/components/AddProjectModal';
-import EditProjectModal from '@/components/EditProjectModal';
 
 export default function ProjectsPage() {
+    const router = useRouter();
     const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedProject, setSelectedProject] = useState<any>(null);
-    const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; projectId: string; projectName: string }>({
-        show: false,
-        projectId: '',
-        projectName: ''
-    });
     const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [statusFilter, setStatusFilter] = useState<string>('all');
 
     const { data, loading, refetch } = useQuery(GET_PROJECTS, {
         variables: statusFilter !== 'all' ? { filters: { status: statusFilter } } : {}
     });
-    const [deleteProject] = useMutation(DELETE_PROJECT);
-
     const projects = data?.projects || [];
 
     const handleProjectAdded = () => {
         refetch();
-    };
-
-    const handleProjectUpdated = () => {
-        refetch();
-    };
-
-    const openEditModal = (project: any) => {
-        setSelectedProject(project);
-        setIsEditModalOpen(true);
-    };
-
-    const openDeleteConfirm = (project: any) => {
-        setDeleteConfirm({
-            show: true,
-            projectId: project.id,
-            projectName: project.name
-        });
-    };
-
-    const handleDelete = async () => {
-        try {
-            await deleteProject({
-                variables: { id: deleteConfirm.projectId }
-            });
-            refetch();
-            setDeleteConfirm({ show: false, projectId: '', projectName: '' });
-            showToast({ variant: 'success', message: 'Project deleted successfully.' });
-        } catch (error) {
-            console.error('Delete failed:', error);
-            showToast({
-                variant: 'error',
-                message: (error as any)?.message || 'Failed to delete project.',
-            });
-        }
-    };
-
-    const cancelDelete = () => {
-        setDeleteConfirm({ show: false, projectId: '', projectName: '' });
     };
 
     const getStatusColor = (status: string) => {
@@ -224,16 +176,17 @@ export default function ProjectsPage() {
             ) : viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projects.map((project: any) => (
-                        <div key={project.id} className="card hover:shadow-lg transition-shadow">
+                        <Link
+                            key={project.id}
+                            href={`/dashboard/projects/${project.id}`}
+                            className="card hover:shadow-lg transition-shadow block group"
+                        >
                             <div className="p-6">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
-                                        <Link
-                                            href={`/dashboard/projects/${project.id}`}
-                                            className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline block"
-                                        >
+                                        <div className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
                                             {project.name}
-                                        </Link>
+                                        </div>
                                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 break-words overflow-hidden">
                                             {project.description}
                                         </p>
@@ -262,33 +215,9 @@ export default function ProjectsPage() {
                                     <div className="text-xs text-gray-500 dark:text-gray-400">
                                         Created {formatDate(project.createdAt)}
                                     </div>
-                                    <div className="flex gap-2 items-center">
-                                        <Link
-                                            href={`/dashboard/projects/${project.id}`}
-                                            className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline outline-none focus:outline-none focus:ring-0 rounded"
-                                        >
-                                            View
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); openEditModal(project); }}
-                                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 outline-none focus:outline-none focus:ring-0"
-                                            title="Edit"
-                                        >
-                                            <PencilIcon className="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={(e) => { e.preventDefault(); openDeleteConfirm(project); }}
-                                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 outline-none focus:outline-none focus:ring-0"
-                                            title="Delete"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             ) : (
@@ -312,22 +241,20 @@ export default function ProjectsPage() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                         Timeline
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Actions
-                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 {projects.map((project: any) => (
-                                    <tr key={project.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                    <tr
+                                        key={project.id}
+                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer group"
+                                        onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div>
-                                                <Link
-                                                    href={`/dashboard/projects/${project.id}`}
-                                                    className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
-                                                >
+                                                <div className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
                                                     {project.name}
-                                                </Link>
+                                                </div>
                                                 <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
                                                     {project.description}
                                                 </div>
@@ -347,28 +274,6 @@ export default function ProjectsPage() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                                             {formatDate(project.startDate)} - {formatDate(project.endDate)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <Link
-                                                href={`/dashboard/projects/${project.id}`}
-                                                className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 mr-3"
-                                            >
-                                                View
-                                            </Link>
-                                            <button
-                                                type="button"
-                                                className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-3 outline-none focus:outline-none focus:ring-0"
-                                                onClick={() => openEditModal(project)}
-                                            >
-                                                <PencilIcon className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 outline-none focus:outline-none focus:ring-0"
-                                                onClick={() => openDeleteConfirm(project)}
-                                            >
-                                                <TrashIcon className="h-4 w-4" />
-                                            </button>
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -382,51 +287,6 @@ export default function ProjectsPage() {
                 onClose={() => setIsModalOpen(false)}
                 onProjectAdded={handleProjectAdded}
             />
-            <EditProjectModal
-                isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
-                onProjectUpdated={handleProjectUpdated}
-                project={selectedProject}
-            />
-
-            {/* Delete Confirmation Modal */}
-            {deleteConfirm.show && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex min-h-screen items-center justify-center p-4">
-                        <div className="fixed inset-0 bg-black opacity-30" onClick={cancelDelete}></div>
-                        
-                        <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-                            <div className="text-center">
-                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
-                                    <TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
-                                </div>
-                                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
-                                    Delete Project
-                                </h3>
-                                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Are you sure you want to delete <strong>{deleteConfirm.projectName}</strong>? This action cannot be undone.
-                                </div>
-                            </div>
-                            <div className="mt-6 flex justify-center space-x-3">
-                                <button
-                                    type="button"
-                                    onClick={cancelDelete}
-                                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={handleDelete}
-                                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

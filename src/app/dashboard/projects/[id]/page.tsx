@@ -1,10 +1,11 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { useState } from 'react';
-import { GET_PROJECT, GET_TASKS, GET_TASK_LISTS } from '@/lib/graphql/queries';
+import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, DELETE_PROJECT } from '@/lib/graphql/queries';
+import { useToast } from '@/components/ToastProvider';
 import {
     ArrowLeftIcon,
     FolderIcon,
@@ -15,6 +16,7 @@ import {
     ClipboardDocumentListIcon,
     Squares2X2Icon,
     PencilIcon,
+    TrashIcon,
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
 
@@ -28,9 +30,12 @@ const statusColors: Record<string, string> = {
 
 export default function ProjectDetailsPage() {
     const params = useParams();
+    const router = useRouter();
+    const { showToast } = useToast();
     const projectId = params?.id as string;
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const { data, loading, error, refetch } = useQuery(GET_PROJECT, {
         variables: { id: projectId },
@@ -44,6 +49,7 @@ export default function ProjectDetailsPage() {
         variables: { projectId },
         skip: !projectId,
     });
+    const [deleteProject] = useMutation(DELETE_PROJECT);
 
     const project = data?.project;
     const tasks = tasksData?.tasks ?? [];
@@ -58,6 +64,26 @@ export default function ProjectDetailsPage() {
             month: 'short',
             day: 'numeric',
         });
+
+    const handleDeleteProject = async () => {
+        if (!projectId) return;
+        try {
+            await deleteProject({
+                variables: { id: projectId },
+                refetchQueries: [{ query: GET_PROJECTS }],
+                awaitRefetchQueries: true,
+            });
+            showToast({ variant: 'success', message: 'Project deleted successfully.' });
+            router.push('/dashboard/projects');
+        } catch (err) {
+            showToast({
+                variant: 'error',
+                message: (err as any)?.message || 'Failed to delete project.',
+            });
+        } finally {
+            setShowDeleteConfirm(false);
+        }
+    };
 
     if (!projectId) {
         return (
@@ -130,6 +156,14 @@ export default function ProjectDetailsPage() {
                             title="Edit project"
                         >
                             <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="Delete project"
+                        >
+                            <TrashIcon className="h-5 w-5" />
                         </button>
                     </div>
                 </div>
@@ -270,6 +304,46 @@ export default function ProjectDetailsPage() {
                 onProjectUpdated={() => refetch()}
                 project={project}
             />
+
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-screen items-center justify-center p-4">
+                        <div
+                            className="fixed inset-0 bg-black opacity-30"
+                            onClick={() => setShowDeleteConfirm(false)}
+                        />
+                        <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+                            <div className="text-center">
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+                                    <TrashIcon className="h-6 w-6 text-red-600 dark:text-red-400" />
+                                </div>
+                                <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-white">
+                                    Delete Project
+                                </h3>
+                                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                    Are you sure you want to delete <strong>{project.name}</strong>? This action cannot be undone.
+                                </div>
+                            </div>
+                            <div className="mt-6 flex justify-center space-x-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteProject}
+                                    className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
