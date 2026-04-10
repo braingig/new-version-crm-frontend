@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { MentionTextarea } from '@/components/MentionTextarea';
+import ModalDropdown from '@/components/ModalDropdown';
 
 export default function TaskModal({
     task,
@@ -23,6 +25,7 @@ export default function TaskModal({
     users: any[];
     lists: any[];
 }) {
+    const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -96,7 +99,7 @@ export default function TaskModal({
                 return;
             }
             if (!formData.listId) {
-                alert('List is required');
+                alert('Folder is required');
                 return;
             }
         }
@@ -142,17 +145,21 @@ export default function TaskModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 overflow-y-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl my-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 max-h-[90vh] flex flex-col">
+                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-50 via-transparent to-primary-100/40 dark:from-primary-900/20 dark:via-transparent dark:to-primary-800/10" />
+                <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-800">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {task?.id ? 'Edit Task' : parentTask ? 'Add Subtask' : 'Create New Task'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <XMarkIcon className="h-5 w-5" />
+                    <button
+                        onClick={onClose}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                    >
+                        <XMarkIcon className="h-4 w-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto px-6 py-5">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
                         <input
@@ -192,16 +199,16 @@ export default function TaskModal({
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</label>
-                            <select
+                            <ModalDropdown
                                 value={formData.priority}
-                                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            >
-                                <option value="LOW">Low</option>
-                                <option value="MEDIUM">Medium</option>
-                                <option value="HIGH">High</option>
-                                <option value="URGENT">Urgent</option>
-                            </select>
+                                onChange={(v) => setFormData({ ...formData, priority: v })}
+                                options={[
+                                    { value: 'LOW', label: 'Low' },
+                                    { value: 'MEDIUM', label: 'Medium' },
+                                    { value: 'HIGH', label: 'High' },
+                                    { value: 'URGENT', label: 'Urgent' },
+                                ]}
+                            />
                         </div>
                         {parentTask ? (
                             <div>
@@ -211,7 +218,7 @@ export default function TaskModal({
                                 </div>
                             </div>
                         ) : task ? (
-                            /* Edit or "add to list": show Project and List read-only so fake filler cannot change them */
+                            /* Edit or "add to folder": show Project and Folder read-only so fake filler cannot change them */
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project</label>
@@ -223,14 +230,14 @@ export default function TaskModal({
                                     </div>
                                 </div>
                                 <div className="mt-3">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">List</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Folder</label>
                                     <div
                                         className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white text-sm"
                                         aria-readonly="true"
                                     >
                                         {formData.listId
                                             ? lists.find((l: any) => l.id === formData.listId)?.name ?? '—'
-                                            : 'No list'}
+                                            : 'No folder'}
                                     </div>
                                 </div>
                             </>
@@ -238,39 +245,31 @@ export default function TaskModal({
                             <>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Project *</label>
-                                    <select
-                                        required
+                                    <ModalDropdown
                                         value={formData.projectId}
-                                        onChange={(e) => setFormData({ ...formData, projectId: e.target.value, listId: '' })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        autoComplete="off"
-                                        data-form-type="other"
-                                    >
-                                        <option value="">Select Project</option>
-                                        {projects.map((project: any) => (
-                                            <option key={project.id} value={project.id}>{project.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={(v) => setFormData({ ...formData, projectId: v, listId: '' })}
+                                        placeholder="Select Project"
+                                        options={projects.map((project: any) => ({
+                                            value: project.id,
+                                            label: project.name,
+                                        }))}
+                                    />
                                 </div>
                                 <div className="mt-3">
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        List *
+                                        Folder *
                                     </label>
-                                    <select
-                                        required
+                                    <ModalDropdown
                                         value={formData.listId}
-                                        onChange={(e) => setFormData({ ...formData, listId: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        autoComplete="off"
-                                        data-form-type="other"
-                                    >
-                                        <option value="">Select List</option>
-                                        {lists
+                                        onChange={(v) => setFormData({ ...formData, listId: v })}
+                                        placeholder="Select Folder"
+                                        options={lists
                                             .filter((list: any) => !formData.projectId || list.projectId === formData.projectId)
-                                            .map((list: any) => (
-                                                <option key={list.id} value={list.id}>{list.name}</option>
-                                            ))}
-                                    </select>
+                                            .map((list: any) => ({
+                                                value: list.id,
+                                                label: list.name,
+                                            }))}
+                                    />
                                 </div>
                             </>
                         )}
@@ -280,31 +279,62 @@ export default function TaskModal({
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Assignees
                             </label>
-                            <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 space-y-2">
-                                {users.map((user: any) => (
-                                    <label
-                                        key={user.id}
-                                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 rounded px-2 py-1 -mx-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.assigneeIds.includes(user.id)}
-                                            onChange={(e) => {
-                                                const checked = e.target.checked;
-                                                const nextIds = checked
-                                                    ? [...formData.assigneeIds, user.id]
-                                                    : formData.assigneeIds.filter((id) => id !== user.id);
-                                                setFormData({
-                                                    ...formData,
-                                                    assigneeIds: nextIds,
-                                                    assignedToId: nextIds[0] || '',
-                                                });
-                                            }}
-                                            className="rounded border-gray-300 dark:border-gray-500 text-primary-600 focus:ring-primary-500"
-                                        />
-                                        <span className="text-sm text-gray-900 dark:text-white">{user.name}</span>
-                                    </label>
-                                ))}
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setAssigneeDropdownOpen((prev) => !prev)}
+                                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-left text-sm text-gray-900 dark:text-white"
+                                >
+                                    <span>
+                                        {formData.assigneeIds.length > 0
+                                            ? `${formData.assigneeIds.length} selected`
+                                            : 'Select assignees'}
+                                    </span>
+                                    <ChevronDownIcon
+                                        className={`h-4 w-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ease-out ${
+                                            assigneeDropdownOpen ? 'rotate-180' : ''
+                                        }`}
+                                    />
+                                </button>
+                                <div
+                                    className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 grid grid-cols-1 sm:grid-cols-2 gap-2 border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 shadow-lg max-h-56 overflow-y-auto origin-top transition-all duration-200 ease-out ${
+                                        assigneeDropdownOpen
+                                            ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                                            : 'opacity-0 scale-95 -translate-y-1 pointer-events-none'
+                                    }`}
+                                >
+                                    {users.map((user: any) => {
+                                        const checked = formData.assigneeIds.includes(user.id);
+                                        return (
+                                            <label
+                                                key={user.id}
+                                                className={`flex items-center gap-2 cursor-pointer rounded-md px-2.5 py-2 border transition-colors ${
+                                                    checked
+                                                        ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20'
+                                                        : 'border-gray-200 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/60'
+                                                }`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={(e) => {
+                                                        const isChecked = e.target.checked;
+                                                        const nextIds = isChecked
+                                                            ? [...formData.assigneeIds, user.id]
+                                                            : formData.assigneeIds.filter((id) => id !== user.id);
+                                                        setFormData({
+                                                            ...formData,
+                                                            assigneeIds: nextIds,
+                                                            assignedToId: nextIds[0] || '',
+                                                        });
+                                                    }}
+                                                    className="rounded border-gray-300 dark:border-gray-500 text-primary-600 focus:ring-primary-500"
+                                                />
+                                                <span className="text-sm text-gray-900 dark:text-white truncate">{user.name}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
                             </div>
                             {formData.assigneeIds.length > 0 && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

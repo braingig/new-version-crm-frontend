@@ -602,8 +602,8 @@ export default function TaskDetailsPage() {
         : '/dashboard/tasks';
 
     const listName = task.listId
-        ? taskLists.find((l: any) => l.id === task.listId)?.name ?? 'List'
-        : 'No list (unassigned)';
+        ? taskLists.find((l: any) => l.id === task.listId)?.name ?? 'Folder'
+        : 'No folder (unassigned)';
 
     const listUrl =
         task.listId
@@ -626,7 +626,7 @@ export default function TaskDetailsPage() {
 
     return (
         <div className="">
-            {/* Hierarchy-aware breadcrumb: Tasks → Project → List → (Parent) → Task */}
+            {/* Hierarchy-aware breadcrumb: Tasks -> Project -> Folder -> (Parent) -> Task */}
             <div className="mb-6 flex flex-col gap-2">
                 <nav
                     className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400"

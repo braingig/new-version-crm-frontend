@@ -112,9 +112,10 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
     };
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 max-h-[90vh] flex flex-col">
+                <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-50 via-transparent to-primary-100/40 dark:from-primary-900/20 dark:via-transparent dark:to-primary-800/10" />
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                     <div>
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                             {task?.title || 'Task details'}
@@ -127,9 +128,9 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
                     >
-                        <XMarkIcon className="h-5 w-5" />
+                        <XMarkIcon className="h-4 w-4" />
                     </button>
                 </div>
 

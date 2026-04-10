@@ -284,7 +284,7 @@ export default function ProjectDetailsPage() {
                         <div className="card">
                             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                 <ClipboardDocumentListIcon className="h-4 w-4" />
-                                Lists
+                                Folders
                             </h2>
                             <ul className="space-y-1">
                                 {taskLists.map((list: any) => (

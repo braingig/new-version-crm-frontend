@@ -472,7 +472,7 @@ const DroppableListColumn = ({
                 ))}
                 {tasks.length === 0 && (
                     <div className="text-center py-8 text-gray-400">
-                        <div className="text-sm">No tasks in this list</div>
+                        <div className="text-sm">No tasks in this folder</div>
                     </div>
                 )}
             </div>
@@ -865,18 +865,18 @@ export default function TasksPage() {
     };
 
     const handleDeleteList = async (list: any) => {
-        if (!window.confirm('Delete this list? All tasks in this list will also be deleted.')) return;
+        if (!window.confirm('Delete this folder? All tasks in this folder will also be deleted.')) return;
         try {
             await deleteTaskListMutation({
                 variables: { id: list.id },
             });
             await Promise.all([refetchLists(), refetchTasks()]);
-            showToast({ variant: 'success', message: 'List deleted successfully.' });
+            showToast({ variant: 'success', message: 'Folder deleted successfully.' });
         } catch (error) {
             console.error('Error deleting list', error);
             showToast({
                 variant: 'error',
-                message: (error as any)?.message || 'Failed to delete list.',
+                message: (error as any)?.message || 'Failed to delete folder.',
             });
         }
     };
@@ -887,7 +887,7 @@ export default function TasksPage() {
         const name = (formData.get('name') as string)?.trim();
         const description = (formData.get('description') as string | null)?.trim() || undefined;
         if (!name) {
-            showToast({ variant: 'warning', message: 'List name is required.' });
+            showToast({ variant: 'warning', message: 'Folder name is required.' });
             return;
         }
         try {
@@ -898,7 +898,7 @@ export default function TasksPage() {
                         input: { name, description },
                     },
                 });
-                showToast({ variant: 'success', message: 'List updated successfully.' });
+                showToast({ variant: 'success', message: 'Folder updated successfully.' });
             } else {
                 await createTaskList({
                     variables: {
@@ -909,7 +909,7 @@ export default function TasksPage() {
                         },
                     },
                 });
-                showToast({ variant: 'success', message: 'List created successfully.' });
+                showToast({ variant: 'success', message: 'Folder created successfully.' });
             }
             setShowListModal(false);
             setEditingList(null);
@@ -918,7 +918,7 @@ export default function TasksPage() {
             console.error('Error saving list', error);
             showToast({
                 variant: 'error',
-                message: (error as any)?.message || 'Failed to save list.',
+                message: (error as any)?.message || 'Failed to save folder.',
             });
         }
     };
@@ -943,11 +943,11 @@ export default function TasksPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tasks</h1>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            Manage tasks by project and list. Create lists and move tasks between them.
+                            Manage tasks by project and folder. Create folders and move tasks between them.
                         </p>
                     </div>
 
-                    {/* Toolbar: Project selector + Workspace + Filters + Add List */}
+                    {/* Toolbar: Project selector + Workspace + Filters + Add Folder */}
                     <div className="flex flex-wrap items-center gap-3">
                         {/* Project (folder) selector - custom dropdown */}
                         <div className="relative min-w-0" ref={projectDropdownRef}>
@@ -1017,7 +1017,7 @@ export default function TasksPage() {
                                     className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
                                 >
                                     <PlusIcon className="h-4 w-4 mr-2" />
-                                    Add List
+                                    Add Folder
                                 </button>
                             )}
                         </div>
@@ -1074,12 +1074,12 @@ export default function TasksPage() {
                 )}
             </div>
 
-            {/* Lists and tasks board */}
+            {/* Folders and tasks board */}
             {!selectedProjectId ? (
                 <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                     <h3 className="mt-2 text-sm font-medium text-gray-900">Select a project</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                        Choose a project folder to view its lists and tasks.
+                        Choose a project folder to view its task folders and tasks.
                     </p>
                 </div>
             ) : tasksLoading ? (
@@ -1103,10 +1103,10 @@ export default function TasksPage() {
             ) : (
                 <div className="space-y-6 pb-4">
                     {!selectedListId ? (
-                        // Show only Lists table
+                        // Show only Folders table
                         <div className="card overflow-hidden">
                             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                                <h3 className="text-sm font-semibold text-gray-900">Lists</h3>
+                                <h3 className="text-sm font-semibold text-gray-900">Folders</h3>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
@@ -1187,7 +1187,7 @@ export default function TasksPage() {
                                                 onClick={() => setSelectedListId('unassigned')}
                                             >
                                                 <td className="px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
-                                                    No list (unassigned)
+                                                    No folder (unassigned)
                                                 </td>
                                                 <td className="px-4 py-2 text-sm text-gray-600">
                                                     {tasksByListId.get('unassigned')!.filter((t: any) => t.status === 'COMPLETED').length}/{tasksByListId.get('unassigned')!.length}
@@ -1208,10 +1208,10 @@ export default function TasksPage() {
                                                     colSpan={5}
                                                 >
                                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                        No lists yet. Tasks can only be created inside a list.
+                                                        No folders yet. Tasks can only be created inside a folder.
                                                     </p>
                                                     <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                                                        Create a list using &quot;+ Add List&quot; above to add tasks.
+                                                        Create a folder using &quot;+ Add Folder&quot; above to add tasks.
                                                     </p>
                                                 </td>
                                             </tr>
@@ -1221,7 +1221,7 @@ export default function TasksPage() {
                             </div>
                         </div>
                     ) : (
-                        // Show breadcrumb + tasks table for selected list
+                        // Show breadcrumb + tasks table for selected folder
                         <>
                             <div className="flex items-center justify-between">
                                 <nav className="text-xs text-gray-500">
@@ -1230,13 +1230,13 @@ export default function TasksPage() {
                                         onClick={() => setSelectedListId(null)}
                                         className="hover:underline"
                                     >
-                                        Lists
+                                        Folders
                                     </button>
                                     <span className="mx-1">/</span>
                                     <span className="font-medium text-gray-700">
                                         {selectedListId === 'unassigned'
-                                            ? 'No list (unassigned)'
-                                            : taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected list'}
+                                            ? 'No folder (unassigned)'
+                                            : taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected folder'}
                                     </span>
                                 </nav>
                             </div>
@@ -1245,11 +1245,11 @@ export default function TasksPage() {
                                 <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
                                     <div>
                                         <h3 className="text-sm font-semibold text-gray-900">
-                                            Tasks in list
+                                            Tasks in folder
                                         </h3>
                                         <p className="text-xs text-gray-500">
                                             {selectedListId === 'unassigned'
-                                                ? 'These tasks have no list. Open a task and set its List to move it into a list.'
+                                                ? 'These tasks have no folder. Open a task and set its folder to move it into a folder.'
                                                 : 'Click a task name to see full details.'}
                                         </p>
                                     </div>
@@ -1333,7 +1333,7 @@ export default function TasksPage() {
                                                         className="px-4 py-4 text-sm text-gray-400 text-center"
                                                         colSpan={5}
                                                     >
-                                                        No tasks in this list yet.
+                                                        No tasks in this folder yet.
                                                     </td>
                                                 </tr>
                                             )}
@@ -1427,13 +1427,13 @@ export default function TasksPage() {
                 onClose={() => setDetailTaskId(null)}
             />
 
-            {/* List Modal */}
+            {/* Folder Modal */}
             {showListModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {editingList ? 'Edit List' : 'Create List'}
+                                {editingList ? 'Edit Folder' : 'Create Folder'}
                             </h2>
                             <button
                                 onClick={() => { setShowListModal(false); setEditingList(null); }}
@@ -1478,7 +1478,7 @@ export default function TasksPage() {
                                     type="submit"
                                     className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
                                 >
-                                    {editingList ? 'Update List' : 'Create List'}
+                                    {editingList ? 'Update Folder' : 'Create Folder'}
                                 </button>
                             </div>
                         </form>

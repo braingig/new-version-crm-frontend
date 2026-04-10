@@ -5,6 +5,7 @@ import { useMutation } from '@apollo/client';
 import { UPDATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/components/ToastProvider';
+import ModalDropdown from '@/components/ModalDropdown';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -99,17 +100,18 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
   if (!isOpen || !project) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 max-h-[90vh]">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-50 via-transparent to-primary-100/40 dark:from-primary-900/20 dark:via-transparent dark:to-primary-800/10" />
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Edit Project
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -121,7 +123,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto px-6 py-5 max-h-[calc(90vh-72px)]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -159,19 +161,17 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Status *
               </label>
-              <select
-                name="status"
+              <ModalDropdown
                 value={formData.status}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="PLANNING">Planning</option>
-                <option value="ACTIVE">Active</option>
-                <option value="ON_HOLD">On Hold</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
+                onChange={(value) => setFormData(prev => ({ ...prev, status: value }))}
+                options={[
+                  { value: 'PLANNING', label: 'Planning' },
+                  { value: 'ACTIVE', label: 'Active' },
+                  { value: 'ON_HOLD', label: 'On Hold' },
+                  { value: 'COMPLETED', label: 'Completed' },
+                  { value: 'CANCELLED', label: 'Cancelled' },
+                ]}
+              />
             </div>
 
             <div>

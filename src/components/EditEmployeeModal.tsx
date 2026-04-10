@@ -5,6 +5,7 @@ import { useMutation } from '@apollo/client';
 import { UPDATE_USER, CHANGE_USER_PASSWORD } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/components/ToastProvider';
+import ModalDropdown from '@/components/ModalDropdown';
 
 interface EditEmployeeModalProps {
     isOpen: boolean;
@@ -217,15 +218,19 @@ export default function EditEmployeeModal({ isOpen, onClose, onEmployeeUpdated, 
                             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Status
                             </label>
-                            <select
-                                name="status"
+                            <ModalDropdown
                                 value={formData.status}
-                                onChange={handleChange}
-                                className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-900/40"
-                            >
-                                <option value="ACTIVE">Active</option>
-                                <option value="INACTIVE">Inactive</option>
-                            </select>
+                                onChange={(value) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        status: value,
+                                    }))
+                                }
+                                options={[
+                                    { value: 'ACTIVE', label: 'Active' },
+                                    { value: 'INACTIVE', label: 'Inactive' },
+                                ]}
+                            />
                         </div>
                     </div>
 
@@ -234,16 +239,20 @@ export default function EditEmployeeModal({ isOpen, onClose, onEmployeeUpdated, 
                             <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Salary Type
                             </label>
-                            <select
-                                name="salaryType"
+                            <ModalDropdown
                                 value={formData.salaryType}
-                                onChange={handleChange}
-                                className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-900/40"
-                            >
-                                <option value="FIXED">Fixed</option>
-                                <option value="HOURLY">Hourly</option>
-                                <option value="CONTRACT">Contract</option>
-                            </select>
+                                onChange={(value) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        salaryType: value,
+                                    }))
+                                }
+                                options={[
+                                    { value: 'FIXED', label: 'Fixed' },
+                                    { value: 'HOURLY', label: 'Hourly' },
+                                    { value: 'CONTRACT', label: 'Contract' },
+                                ]}
+                            />
                         </div>
 
                         <div className="space-y-1.5">
