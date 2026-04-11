@@ -43,4 +43,54 @@
   .label {
     @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
   }
+
+  /* TipTap / read-only rich text (task descriptions) */
+  .rich-text-editor-inner h1,
+  .rich-text-content h1 {
+    @apply text-2xl font-bold text-gray-900 dark:text-gray-100 mt-2 mb-2;
+  }
+  .rich-text-editor-inner h2,
+  .rich-text-content h2 {
+    @apply text-xl font-bold text-gray-900 dark:text-gray-100 mt-2 mb-2;
+  }
+  .rich-text-editor-inner h3,
+  .rich-text-content h3 {
+    @apply text-lg font-semibold text-gray-900 dark:text-gray-100 mt-2 mb-1;
+  }
+  .rich-text-editor-inner p,
+  .rich-text-content p {
+    @apply my-2 first:mt-0 last:mb-0;
+  }
+  .rich-text-editor-inner ul:not([data-type]),
+  .rich-text-content ul:not([data-type]) {
+    @apply list-disc pl-6 my-2;
+  }
+  .rich-text-editor-inner ol,
+  .rich-text-content ol {
+    @apply list-decimal pl-6 my-2;
+  }
+  .rich-text-editor-inner blockquote,
+  .rich-text-content blockquote {
+    @apply border-l-4 border-primary-300 dark:border-primary-600 pl-3 my-2 text-gray-600 dark:text-gray-400 italic;
+  }
+  .rich-text-editor-inner pre,
+  .rich-text-content pre {
+    @apply bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2 text-sm font-mono overflow-x-auto my-2;
+  }
+  .rich-text-editor-inner code,
+  .rich-text-content code {
+    @apply bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-sm font-mono;
+  }
+  .rich-text-editor-inner hr,
+  .rich-text-content hr {
+    @apply my-4 border-gray-200 dark:border-gray-600;
+  }
+  .rich-text-editor-inner ul[data-type='taskList'],
+  .rich-text-content ul[data-type='taskList'] {
+    @apply list-none pl-0 my-2;
+  }
+  .rich-text-editor-inner li[data-type='taskItem'],
+  .rich-text-content li[data-type='taskItem'] {
+    @apply flex gap-2 items-start my-1;
+  }
 }

@@ -36,6 +36,7 @@ import {
 } from '@/lib/graphql/queries';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
+import { htmlToPlainText, isProbablyRichTextHtml } from '@/lib/richText';
 
 const priorityColors: { [key: string]: string } = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -239,7 +240,11 @@ const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtas
                 <>
                     {task.description && (
                         <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
-                            <MentionFormattedText text={task.description} />
+                            {isProbablyRichTextHtml(task.description) ? (
+                                htmlToPlainText(task.description)
+                            ) : (
+                                <MentionFormattedText text={task.description} />
+                            )}
                         </p>
                     )}
                     <div className="flex items-center justify-between mb-2">
@@ -498,7 +503,11 @@ const TaskCard = ({ task }: { task: any }) => {
             <h3 className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2">{task.title}</h3>
             {task.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
-                    <MentionFormattedText text={task.description} />
+                    {isProbablyRichTextHtml(task.description) ? (
+                        htmlToPlainText(task.description)
+                    ) : (
+                        <MentionFormattedText text={task.description} />
+                    )}
                 </p>
             )}
             <div className="flex items-center justify-between">

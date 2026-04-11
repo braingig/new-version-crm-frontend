@@ -45,6 +45,7 @@ import {
 import { useState, useEffect, useMemo } from 'react';
 import TaskModal from '@/components/TaskModal';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
+import { RichTextContent } from '@/components/RichTextContent';
 import { MentionTextarea } from '@/components/MentionTextarea';
 import { useAuthStore } from '@/lib/store';
 import { useToast } from '@/components/ToastProvider';
@@ -761,9 +762,10 @@ export default function TaskDetailsPage() {
                                 <DocumentTextIcon className="h-5 w-5 text-primary-600" />
                                 Description
                             </h2>
-                            <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                <MentionFormattedText text={task.description} />
-                            </p>
+                            <RichTextContent
+                                htmlOrText={task.description}
+                                className="text-gray-600 dark:text-gray-300"
+                            />
                         </div>
                     )}
                     {task.note && (

@@ -6,6 +6,7 @@ import { useQuery, useMutation } from '@apollo/client';
 import { GET_TASK_DETAILS, GET_ACTIVE_TIME_ENTRY, GET_TIME_ENTRIES, START_TIME_ENTRY, STOP_TIME_ENTRY } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
+import { RichTextContent } from '@/components/RichTextContent';
 
 interface TaskDetailsModalProps {
     taskId: string | null;
@@ -152,9 +153,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                                         Description
                                     </h3>
-                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                        <MentionFormattedText text={task.description} />
-                                    </p>
+                                    <RichTextContent htmlOrText={task.description} />
                                 </div>
                             )}
                             {task.note && (
