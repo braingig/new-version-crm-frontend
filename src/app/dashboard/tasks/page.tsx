@@ -59,6 +59,12 @@ const statusBadgeColors: { [key: string]: string } = {
     COMPLETED: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
 };
 
+function taskStatusBadgeClass(status: string): string {
+    const colors = statusBadgeColors[status] || statusBadgeColors.TODO;
+    // shrink-0: flex parents (e.g. card headers) must not compress the pill; nowrap keeps "In Progress" on one line
+    return `inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium leading-none ${colors}`;
+}
+
 function getTaskAssignees(task: any, users: any[]): { id: string; name: string; email?: string }[] {
     const map = new Map<string, { id: string; name: string; email?: string }>();
     (task?.assignees ?? []).forEach((u: any) => {
@@ -84,7 +90,7 @@ function flattenTasks(tasks: any[]): any[] {
     return out;
 }
 
-const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtask, onNavigateToDetails, users, isSubtask = false, indentLevel = 0, hasSubtasks = false, expanded, onToggleExpand, parentTitle }: {
+const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtask, onNavigateToDetails, users, isSubtask = false, indentLevel = 0, hasSubtasks = false, expanded, onToggleExpand, parentTitle, isAdmin = false }: {
     task: any;
     onEdit: (task: any) => void;
     onDelete: (task: any) => void;
@@ -98,6 +104,8 @@ const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtas
     expanded?: boolean;
     onToggleExpand?: () => void;
     parentTitle?: string;
+    /** Only admins can mark Complete (server-enforced). */
+    isAdmin?: boolean;
 }) => {
     const [showMenu, setShowMenu] = useState(false);
     const {
@@ -232,7 +240,7 @@ const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtas
 
             {isSubtask ? (
                 <div className="mt-2 flex items-center gap-2" onPointerDown={(e) => e.stopPropagation()}>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${statusBadgeColors[task.status] || statusBadgeColors.TODO}`}>
+                    <span className={taskStatusBadgeClass(task.status)}>
                         {statusLabels[task.status] || task.status}
                     </span>
                 </div>
@@ -290,25 +298,25 @@ const DraggableTaskCard = ({ task, onEdit, onDelete, onStatusChange, onAddSubtas
                     >
                         {task.status !== 'TODO' && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange('TODO'); }}
-                                className="text-xs px-2 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+                                className="text-xs px-2 py-1 rounded-md whitespace-nowrap bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
                                 To Do
                             </button>
                         )}
                         {task.status !== 'IN_PROGRESS' && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange('IN_PROGRESS'); }}
-                                className="text-xs px-2 py-1 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30">
+                                className="text-xs px-2 py-1 rounded-md whitespace-nowrap bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30">
                                 In Progress
                             </button>
                         )}
                         {task.status !== 'REVIEW' && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange('REVIEW'); }}
-                                className="text-xs px-2 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30">
+                                className="text-xs px-2 py-1 rounded-md whitespace-nowrap bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/20 dark:text-purple-400 dark:hover:bg-purple-900/30">
                                 Review
                             </button>
                         )}
-                        {task.status !== 'COMPLETED' && (
+                        {task.status !== 'COMPLETED' && isAdmin && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); handleStatusChange('COMPLETED'); }}
-                                className="text-xs px-2 py-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30">
+                                className="text-xs px-2 py-1 rounded-md whitespace-nowrap bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30">
                                 Complete
                             </button>
                         )}
@@ -329,7 +337,8 @@ const ParentTaskWithSubtasks = ({
     onStatusChange, 
     onAddSubtask, 
     onNavigateToDetails,
-    users 
+    users,
+    isAdmin = false,
 }: {
     task: any;
     expanded: boolean;
@@ -340,6 +349,7 @@ const ParentTaskWithSubtasks = ({
     onAddSubtask?: (parent: any) => void;
     onNavigateToDetails?: (taskId: string) => void;
     users: any[];
+    isAdmin?: boolean;
 }) => {
     const hasSubtasks = task.subTasks && task.subTasks.length > 0;
     const subtasks = task.subTasks || [];
@@ -358,6 +368,7 @@ const ParentTaskWithSubtasks = ({
                 hasSubtasks={hasSubtasks}
                 expanded={expanded}
                 onToggleExpand={onToggleExpand}
+                isAdmin={isAdmin}
             />
             {hasSubtasks && (
                 <div
@@ -379,6 +390,7 @@ const ParentTaskWithSubtasks = ({
                                     isSubtask={true}
                                     indentLevel={1}
                                     parentTitle={task.title}
+                                    isAdmin={isAdmin}
                                 />
                             ))}
                         </div>
@@ -404,6 +416,7 @@ const DroppableListColumn = ({
     onAddTaskToList,
     onEditList,
     onDeleteList,
+    isAdmin = false,
 }: {
     list: any;
     tasks: any[];
@@ -418,6 +431,7 @@ const DroppableListColumn = ({
     onAddTaskToList: (listId: string) => void;
     onEditList: (list: any) => void;
     onDeleteList: (list: any) => void;
+    isAdmin?: boolean;
 }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: list.id,
@@ -473,6 +487,7 @@ const DroppableListColumn = ({
                         onAddSubtask={onAddSubtask}
                         onNavigateToDetails={onNavigateToDetails}
                         users={users}
+                        isAdmin={isAdmin}
                     />
                 ))}
                 {tasks.length === 0 && (
@@ -492,7 +507,7 @@ const TaskCard = ({ task }: { task: any }) => {
         return (
             <div className="rounded-lg shadow-lg border-2 border-primary-400 border-l-4 border-l-primary-500 bg-white dark:bg-gray-800 p-3 opacity-95">
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">{task.title}</h3>
-                <span className={`inline-flex mt-1.5 px-2 py-0.5 rounded-md text-xs font-medium ${statusBadgeColors[task.status] || statusBadgeColors.TODO}`}>
+                <span className={`mt-1.5 ${taskStatusBadgeClass(task.status)}`}>
                     {statusLabels[task.status] || task.status}
                 </span>
             </div>
@@ -835,12 +850,14 @@ export default function TasksPage() {
             });
             refetchTasks();
             showToast({ variant: 'success', message: 'Task status updated.' });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating task status:', error);
-            showToast({
-                variant: 'error',
-                message: (error as any)?.message || 'Failed to update task status.',
-            });
+            const msg =
+                error?.graphQLErrors?.[0]?.message ||
+                error?.networkError?.result?.errors?.[0]?.message ||
+                error?.message ||
+                'Failed to update task status.';
+            showToast({ variant: 'error', message: msg });
         }
     };
 
@@ -1302,13 +1319,8 @@ export default function TasksPage() {
                                                     className="hover:bg-gray-50 cursor-pointer"
                                                     onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
                                                 >
-                                                        <td className="px-4 py-2 text-xs">
-                                                            <span
-                                                                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                                                                    statusBadgeColors[task.status] ||
-                                                                    statusBadgeColors.TODO
-                                                                }`}
-                                                            >
+                                                        <td className="px-4 py-2 align-middle whitespace-nowrap w-[1%]">
+                                                            <span className={taskStatusBadgeClass(task.status)}>
                                                                 {statusLabels[task.status] || task.status}
                                                             </span>
                                                         </td>

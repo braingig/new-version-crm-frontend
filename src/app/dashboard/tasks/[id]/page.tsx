@@ -153,12 +153,14 @@ export default function TaskDetailsPage() {
         setStatusDropdownOpen(false);
         updateTask({ variables: { id: taskId, input: { status: newStatus } } })
             .then(() => showToast({ variant: 'success', message: 'Task status updated.' }))
-            .catch((e: any) =>
-                showToast({
-                    variant: 'error',
-                    message: e?.message || 'Failed to update task status.',
-                }),
-            );
+            .catch((e: any) => {
+                const msg =
+                    e?.graphQLErrors?.[0]?.message ||
+                    e?.networkError?.result?.errors?.[0]?.message ||
+                    e?.message ||
+                    'Failed to update task status.';
+                showToast({ variant: 'error', message: msg });
+            });
     };
 
     const handleAddComment = (e: React.FormEvent) => {
@@ -681,9 +683,9 @@ export default function TaskDetailsPage() {
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                             <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors.TODO}`}
+                                className={`inline-flex shrink-0 items-center whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors.TODO}`}
                             >
-                                {task.status.replace('_', ' ')}
+                                {task.status.replace(/_/g, ' ')}
                             </span>
                             <span
                                 className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${priorityColors[task.priority] || priorityColors.MEDIUM}`}
@@ -699,38 +701,52 @@ export default function TaskDetailsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-                                className="btn-secondary inline-flex items-center gap-2 text-sm"
-                            >
-                                <CheckCircleIcon className="h-4 w-4" />
-                                {task.status.replace('_', ' ')}
-                            </button>
-                            {statusDropdownOpen && (
-                                <>
-                                    <div
-                                        className="fixed inset-0 z-10"
-                                        aria-hidden="true"
-                                        onClick={() => setStatusDropdownOpen(false)}
-                                    />
-                                    <div className="absolute right-0 mt-1 w-44 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
-                                        {['TODO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'].map(
-                                            (s) =>
-                                                s !== task.status && (
-                                                    <button
-                                                        key={s}
-                                                        type="button"
-                                                        onClick={() => handleStatusChange(s)}
-                                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                                    >
-                                                        {s.replace('_', ' ')}
-                                                    </button>
-                                                )
-                                        )}
-                                    </div>
-                                </>
+                        <div className="flex flex-col items-end gap-0.5">
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                                    className="btn-secondary inline-flex items-center gap-2 text-sm whitespace-nowrap"
+                                >
+                                    <CheckCircleIcon className="h-4 w-4 shrink-0" />
+                                    {task.status.replace(/_/g, ' ')}
+                                </button>
+                                {statusDropdownOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-10"
+                                            aria-hidden="true"
+                                            onClick={() => setStatusDropdownOpen(false)}
+                                        />
+                                        <div className="absolute right-0 mt-1 w-44 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
+                                            {(
+                                                [
+                                                    'TODO',
+                                                    'IN_PROGRESS',
+                                                    'REVIEW',
+                                                    ...(isAdmin ? (['COMPLETED'] as const) : []),
+                                                ] as const
+                                            ).map(
+                                                (s) =>
+                                                    s !== task.status && (
+                                                        <button
+                                                            key={s}
+                                                            type="button"
+                                                            onClick={() => handleStatusChange(s)}
+                                                            className="block w-full text-left px-4 py-2 text-sm whitespace-nowrap text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                                        >
+                                                            {s.replace(/_/g, ' ')}
+                                                        </button>
+                                                    ),
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            {!isAdmin && (
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-[14rem] text-right leading-tight">
+                                    Use Review when finished. Only an admin can mark Complete.
+                                </p>
                             )}
                         </div>
                         <button
@@ -802,9 +818,9 @@ export default function TaskDetailsPage() {
                                             </Link>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span
-                                                    className={`text-xs px-2 py-0.5 rounded ${statusColors[st.status] || ''}`}
+                                                    className={`inline-flex shrink-0 items-center whitespace-nowrap text-xs px-2 py-0.5 rounded ${statusColors[st.status] || ''}`}
                                                 >
-                                                    {st.status?.replace('_', ' ')}
+                                                    {st.status?.replace(/_/g, ' ')}
                                                 </span>
                                                 <span
                                                     className={`text-xs px-2 py-0.5 rounded ${priorityColors[st.priority] || ''}`}

@@ -10,6 +10,7 @@ import {
     FolderIcon,
     ClockIcon,
     CurrencyDollarIcon,
+    ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline';
 
 type StatChangeType = 'positive' | 'negative' | 'neutral';
@@ -117,6 +118,10 @@ export default function DashboardPage() {
         variables: { filters: { assignedToId: userId ?? '' } },
         skip: !userId,
     });
+    const { data: reviewTasksAdminData } = useQuery(GET_TASKS, {
+        variables: { filters: { status: 'REVIEW' } },
+        skip: !isAdmin,
+    });
 
     const allProjects = projectsData?.projects ?? [];
     const allTasks = tasksData?.tasks ?? [];
@@ -188,6 +193,12 @@ export default function DashboardPage() {
         () => new Set(adminInProgressByUser.map((r) => r.userKey)).size,
         [adminInProgressByUser]
     );
+
+    /** Parent tasks in Review (admin queue for final approval → Complete). */
+    const adminReviewTasks = useMemo(() => {
+        if (!isAdmin || !reviewTasksAdminData?.tasks) return [];
+        return reviewTasksAdminData.tasks as any[];
+    }, [isAdmin, reviewTasksAdminData?.tasks]);
 
     const stats = useMemo(() => {
         const totalEmployees = usersData?.users?.length ?? 0;
@@ -276,22 +287,20 @@ export default function DashboardPage() {
                             <button
                                 type="button"
                                 onClick={() => setViewMode('mine')}
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${
-                                    viewMode === 'mine'
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'mine'
                                         ? 'bg-primary-600 text-white shadow-sm'
                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
-                                }`}
+                                    }`}
                             >
                                 Assigned to me
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setViewMode('all')}
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${
-                                    viewMode === 'all'
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'all'
                                         ? 'bg-primary-600 text-white shadow-sm'
                                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
-                                }`}
+                                    }`}
                             >
                                 Team view
                             </button>
@@ -299,127 +308,111 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-            {hasNoAssignedItems && (
-                <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
-                    No tasks or projects are currently assigned to you. Switch to <span className="font-semibold">Team view</span> to view everything.
-                </div>
-            )}
+                {hasNoAssignedItems && (
+                    <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
+                        No tasks or projects are currently assigned to you. Switch to <span className="font-semibold">Team view</span> to view everything.
+                    </div>
+                )}
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                {stats.map((stat) => (
-                    <div
-                        key={stat.name}
-                        className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm hover:shadow transition-shadow px-5 py-4"
-                    >
-                        <div className="flex items-center">
-                            <div className="flex-shrink-0">
-                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-3">
-                                    <stat.icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                {/* Stats */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                    {stats.map((stat) => (
+                        <div
+                            key={stat.name}
+                            className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm hover:shadow transition-shadow px-5 py-4"
+                        >
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0">
+                                    <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-3">
+                                        <stat.icon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="ml-4 flex-1">
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    {stat.name}
-                                </p>
-                                {stat.hint && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-                                        {stat.hint}
+                                <div className="ml-4 flex-1">
+                                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                        {stat.name}
                                     </p>
-                                )}
-                                <p className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                                    {stat.value}
-                                </p>
-                            </div>
-                        </div>
-                        {stat.change !== '—' && (
-                            <div className="mt-4">
-                                <div
-                                    className={`inline-flex items-baseline rounded-full px-2.5 py-0.5 text-sm font-medium ${
-                                        stat.changeType === 'positive'
-                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                            : stat.changeType === 'negative'
-                                                ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                                    }`}
-                                >
-                                    {stat.change}
+                                    {stat.hint && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                                            {stat.hint}
+                                        </p>
+                                    )}
+                                    <p className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                                        {stat.value}
+                                    </p>
                                 </div>
-                                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                                    from last month
-                                </span>
                             </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-
-            {isAdmin && (
-                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg p-3">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Work in progress
-                            </h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
-                            {adminInProgressByUser.length === 0 ? (
-                                'No tasks in this status right now'
-                            ) : (
-                                <>
-                                    <span className="font-medium text-gray-900 dark:text-white">
-                                        {adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0)}
-                                    </span>{' '}
-                                    task{adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0) === 1 ? '' : 's'} ·{' '}
-                                    <span className="font-medium text-gray-900 dark:text-white">
-                                        {adminInProgressPeopleCount}
-                                    </span>{' '}
-                                    people
-                                </>
+                            {stat.change !== '—' && (
+                                <div className="mt-4">
+                                    <div
+                                        className={`inline-flex items-baseline rounded-full px-2.5 py-0.5 text-sm font-medium ${stat.changeType === 'positive'
+                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                                : stat.changeType === 'negative'
+                                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        {stat.change}
+                                    </div>
+                                    <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                        from last month
+                                    </span>
+                                </div>
                             )}
-                        </p>
-                    </div>
-                    {adminInProgressByUser.length === 0 ? (
-                        <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-6">
-                            When someone moves a task to In progress, it will appear here with their name.
-                        </p>
-                    ) : (
-                        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-gray-50/80 dark:bg-gray-900/60">
-                                    <tr className="text-left text-gray-600 dark:text-gray-400">
-                                        <th className="py-3 px-4 font-medium whitespace-nowrap border-r border-gray-200 dark:border-gray-700">Employee</th>
-                                        <th className="py-3 px-4 font-medium min-w-[12rem]">Task</th>
-                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Project</th>
-                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Priority</th>
-                                        <th className="py-3 px-4 font-medium whitespace-nowrap">Due</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white dark:bg-transparent">
-                                    {adminInProgressByUser.map((row) => {
-                                        return row.tasks.map((task: any, idx: number) => {
+                        </div>
+                    ))}
+                </div>
+
+                {isAdmin && (
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 bg-violet-50/80 dark:bg-violet-950/30 rounded-lg p-3 border border-violet-100/80 dark:border-violet-900/40">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-lg bg-violet-100 dark:bg-violet-900/40 p-2">
+                                    <ClipboardDocumentCheckIcon className="h-5 w-5 text-violet-700 dark:text-violet-300" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Tasks in review
+                                </h2>
+                            </div>
+                            <Link
+                                href="/dashboard/tasks"
+                                className="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline shrink-0"
+                            >
+                                Go to Tasks
+                            </Link>
+                        </div>
+                        {adminReviewTasks.length === 0 ? (
+                            <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-6">
+                                No tasks are waiting for review.
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-gray-50/80 dark:bg-gray-900/60">
+                                        <tr className="text-left text-gray-600 dark:text-gray-400">
+                                            <th className="py-3 px-4 font-medium">Task</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Project</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Assignee</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Due</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Priority</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white dark:bg-transparent">
+                                        {adminReviewTasks.map((task: any) => {
                                             const due = dueDateDisplay(task.dueDate);
+                                            const assigneeIdList = assigneeIdsForTask(task);
+                                            const names =
+                                                assigneeIdList.length === 0
+                                                    ? '—'
+                                                    : assigneeIdList
+                                                        .map((id) => usersData?.users?.find((u: any) => u.id === id)?.name)
+                                                        .filter(Boolean)
+                                                        .join(', ') || '—';
                                             const pri = task.priority as string | undefined;
                                             return (
                                                 <tr
-                                                    key={`${row.userKey}__${task.id}`}
-                                                    className="border-t border-gray-100 dark:border-gray-700/80 align-top"
+                                                    key={task.id}
+                                                    className="border-t border-gray-100 dark:border-gray-700/80"
                                                 >
-                                                    {idx === 0 && (
-                                                        <td
-                                                            rowSpan={row.tasks.length}
-                                                            className="py-3 px-3 text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 align-middle"
-                                                        >
-                                                            <div className="mx-auto flex flex-col items-center justify-center gap-1 text-center">
-                                                                <div className="font-semibold whitespace-nowrap" title={row.employeeName}>
-                                                                    {row.employeeName}
-                                                                </div>
-                                                                {row.department && (
-                                                                    <div className="text-[10px] text-gray-500 dark:text-gray-500 leading-tight">
-                                                                        {row.department}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    )}
                                                     <td className="py-3 px-4">
                                                         <Link
                                                             href={`/dashboard/tasks/${task.id}`}
@@ -428,7 +421,7 @@ export default function DashboardPage() {
                                                             {task.title}
                                                         </Link>
                                                     </td>
-                                                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300">
+                                                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300 whitespace-nowrap">
                                                         {task.project?.name ? (
                                                             <Link
                                                                 href={`/dashboard/projects/${task.project.id}`}
@@ -437,15 +430,11 @@ export default function DashboardPage() {
                                                                 {task.project.name}
                                                             </Link>
                                                         ) : (
-                                                            <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                            '—'
                                                         )}
                                                     </td>
-                                                    <td className="py-3 px-4">
-                                                        <span
-                                                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${priorityPillClass(pri)}`}
-                                                        >
-                                                            {(pri ?? '—').replace('_', ' ')}
-                                                        </span>
+                                                    <td className="py-3 px-4 text-gray-700 dark:text-gray-300 max-w-[10rem] truncate" title={names}>
+                                                        {names}
                                                     </td>
                                                     <td className="py-3 px-4 whitespace-nowrap">
                                                         {due.text === '—' ? (
@@ -459,107 +448,234 @@ export default function DashboardPage() {
                                                                 }
                                                             >
                                                                 {due.text}
-                                                                {due.overdue && (
-                                                                    <span className="block text-xs font-normal text-red-500 dark:text-red-400/90">
-                                                                        Overdue
-                                                                    </span>
-                                                                )}
                                                             </span>
                                                         )}
                                                     </td>
+                                                    <td className="py-3 px-4">
+                                                        <span
+                                                            className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${priorityPillClass(pri)}`}
+                                                        >
+                                                            {(pri ?? '—').replace('_', ' ')}
+                                                        </span>
+                                                    </td>
                                                 </tr>
                                             );
-                                        });
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Grid Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Recent Projects */}
-                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                        {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
-                    </h2>
-                    <div className="space-y-3">
-                        {recentProjects.length > 0 ? (
-                            recentProjects.map((project: any) => (
-                                <Link
-                                    key={project.id}
-                                    href={`/dashboard/projects/${project.id}`}
-                                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">
-                                            {project.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            {project.clientName || 'Internal'}
-                                        </p>
-                                    </div>
-                                    <span
-                                        className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${project.status === 'ACTIVE'
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                                            }`}
-                                    >
-                                        {project.status}
-                                    </span>
-                                </Link>
-                            ))
-                        ) : (
-                            <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                                {viewMode === 'mine' ? 'No projects assigned to you' : 'No projects yet'}
-                            </p>
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </div>
-                </div>
+                )}
 
-                {/* Recent Tasks */}
-                <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                        {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
-                    </h2>
-                    <div className="space-y-3">
-                        {recentTasks.length > 0 ? (
-                            recentTasks.map((task: any) => (
-                                <Link
-                                    key={task.id}
-                                    href={`/dashboard/tasks/${task.id}`}
-                                    className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-medium text-gray-900 dark:text-white">
-                                            {task.title}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                                            Priority: {task.priority}
-                                        </p>
-                                    </div>
-                                    <span
-                                        className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${task.status === 'COMPLETED'
+                {isAdmin && (
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg p-3">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                Work in progress
+                            </h2>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
+                                {adminInProgressByUser.length === 0 ? (
+                                    'No tasks in this status right now'
+                                ) : (
+                                    <>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0)}
+                                        </span>{' '}
+                                        task{adminInProgressByUser.reduce((sum, row) => sum + row.tasks.length, 0) === 1 ? '' : 's'} ·{' '}
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {adminInProgressPeopleCount}
+                                        </span>{' '}
+                                        people
+                                    </>
+                                )}
+                            </p>
+                        </div>
+                        {adminInProgressByUser.length === 0 ? (
+                            <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-6">
+                                When someone moves a task to In progress, it will appear here with their name.
+                            </p>
+                        ) : (
+                            <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+                                <table className="min-w-full text-sm">
+                                    <thead className="bg-gray-50/80 dark:bg-gray-900/60">
+                                        <tr className="text-left text-gray-600 dark:text-gray-400">
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap border-r border-gray-200 dark:border-gray-700">Employee</th>
+                                            <th className="py-3 px-4 font-medium min-w-[12rem]">Task</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Project</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Priority</th>
+                                            <th className="py-3 px-4 font-medium whitespace-nowrap">Due</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white dark:bg-transparent">
+                                        {adminInProgressByUser.map((row) => {
+                                            return row.tasks.map((task: any, idx: number) => {
+                                                const due = dueDateDisplay(task.dueDate);
+                                                const pri = task.priority as string | undefined;
+                                                return (
+                                                    <tr
+                                                        key={`${row.userKey}__${task.id}`}
+                                                        className="border-t border-gray-100 dark:border-gray-700/80 align-top"
+                                                    >
+                                                        {idx === 0 && (
+                                                            <td
+                                                                rowSpan={row.tasks.length}
+                                                                className="py-3 px-3 text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700 align-middle"
+                                                            >
+                                                                <div className="mx-auto flex flex-col items-center justify-center gap-1 text-center">
+                                                                    <div className="font-semibold whitespace-nowrap" title={row.employeeName}>
+                                                                        {row.employeeName}
+                                                                    </div>
+                                                                    {row.department && (
+                                                                        <div className="text-[10px] text-gray-500 dark:text-gray-500 leading-tight">
+                                                                            {row.department}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        <td className="py-3 px-4">
+                                                            <Link
+                                                                href={`/dashboard/tasks/${task.id}`}
+                                                                className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                                                            >
+                                                                {task.title}
+                                                            </Link>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-gray-700 dark:text-gray-300">
+                                                            {task.project?.name ? (
+                                                                <Link
+                                                                    href={`/dashboard/projects/${task.project.id}`}
+                                                                    className="hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
+                                                                >
+                                                                    {task.project.name}
+                                                                </Link>
+                                                            ) : (
+                                                                <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <span
+                                                                className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${priorityPillClass(pri)}`}
+                                                            >
+                                                                {(pri ?? '—').replace('_', ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-4 whitespace-nowrap">
+                                                            {due.text === '—' ? (
+                                                                <span className="text-gray-400 dark:text-gray-500">—</span>
+                                                            ) : (
+                                                                <span
+                                                                    className={
+                                                                        due.overdue
+                                                                            ? 'text-red-600 dark:text-red-400 font-medium'
+                                                                            : 'text-gray-800 dark:text-gray-200'
+                                                                    }
+                                                                >
+                                                                    {due.text}
+                                                                    {due.overdue && (
+                                                                        <span className="block text-xs font-normal text-red-500 dark:text-red-400/90">
+                                                                            Overdue
+                                                                        </span>
+                                                                    )}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Grid Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Recent Projects */}
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                            {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
+                        </h2>
+                        <div className="space-y-3">
+                            {recentProjects.length > 0 ? (
+                                recentProjects.map((project: any) => (
+                                    <Link
+                                        key={project.id}
+                                        href={`/dashboard/projects/${project.id}`}
+                                        className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-medium text-gray-900 dark:text-white">
+                                                {project.name}
+                                            </h3>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                {project.clientName || 'Internal'}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${project.status === 'ACTIVE'
+                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                                }`}
+                                        >
+                                            {project.status}
+                                        </span>
+                                    </Link>
+                                ))
+                            ) : (
+                                <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                                    {viewMode === 'mine' ? 'No projects assigned to you' : 'No projects yet'}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Recent Tasks */}
+                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
+                            {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
+                        </h2>
+                        <div className="space-y-3">
+                            {recentTasks.length > 0 ? (
+                                recentTasks.map((task: any) => (
+                                    <Link
+                                        key={task.id}
+                                        href={`/dashboard/tasks/${task.id}`}
+                                        className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-medium text-gray-900 dark:text-white">
+                                                {task.title}
+                                            </h3>
+                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                Priority: {task.priority}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap px-2.5 py-1 text-xs font-medium rounded-full ${task.status === 'COMPLETED'
                                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                                                 : task.status === 'IN_PROGRESS'
                                                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                                            }`}
-                                    >
-                                        {task.status.replace('_', ' ')}
-                                    </span>
-                                </Link>
-                            ))
-                        ) : (
-                            <p className="text-gray-500 dark:text-gray-400 text-center py-4">
-                                {viewMode === 'mine' ? 'No tasks assigned to you' : 'No tasks yet'}
-                            </p>
-                        )}
+                                                    : task.status === 'REVIEW'
+                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                                }`}
+                                        >
+                                            {task.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </Link>
+                                ))
+                            ) : (
+                                <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                                    {viewMode === 'mine' ? 'No tasks assigned to you' : 'No tasks yet'}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
             </div>
         </div>
     );
