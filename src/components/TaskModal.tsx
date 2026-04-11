@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
-import { MentionTextarea } from '@/components/MentionTextarea';
+import { MentionTextarea, type MentionUser } from '@/components/MentionTextarea';
 import RichTextEditor from '@/components/RichTextEditor';
 import ModalDropdown from '@/components/ModalDropdown';
 import { isEmptyRichTextHtml } from '@/lib/richText';
@@ -180,8 +180,8 @@ export default function TaskModal({
                         </label>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
                             Rich text: headings, lists, links, colors, and more. Type{' '}
-                            <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> name
-                            or email in the note field below to mention someone.
+                            <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> in this
+                            description or in the note below to mention someone.
                         </p>
                         <RichTextEditor
                             key={task?.id ? `edit-${task.id}` : parentTask ? `sub-${parentTask.id}` : 'create'}
@@ -189,6 +189,7 @@ export default function TaskModal({
                             onChange={(html) => setFormData({ ...formData, description: html })}
                             placeholder="Describe the task in detail…"
                             minHeightClassName="min-h-[220px]"
+                            mentionUsers={users as MentionUser[]}
                         />
                     </div>
                     <div>

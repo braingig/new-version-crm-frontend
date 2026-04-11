@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import 'tippy.js/dist/tippy.css'
 import './globals.css'
 import { ApolloProvider } from '@/lib/apollo-client'
 import SessionExpiryHandler from '@/components/SessionExpiryHandler'

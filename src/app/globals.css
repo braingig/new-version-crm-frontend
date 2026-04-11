@@ -93,4 +93,31 @@
   .rich-text-content li[data-type='taskItem'] {
     @apply flex gap-2 items-start my-1;
   }
+  .rich-text-editor-inner span[data-type='mention'],
+  .rich-text-content span[data-type='mention'] {
+    @apply rounded px-0.5 font-medium text-primary-700 bg-primary-50 dark:text-primary-300 dark:bg-primary-900/25;
+  }
+}
+
+/*
+ * Mention @-suggestion popover (Tippy): default tippy.css is unlayered and loads after this file
+ * from the JS bundle. Rules inside @layer components lose to it, so the dark .tippy-box
+ * (#333) showed as a thick “black border” around our list. These overrides are unlayered.
+ */
+.tippy-box[data-theme='mention-suggestion'] {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.tippy-box[data-theme='mention-suggestion'] .tippy-content {
+  padding: 0 !important;
+}
+
+.tippy-box[data-theme='mention-suggestion'] > .tippy-arrow {
+  display: none !important;
 }

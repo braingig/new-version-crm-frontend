@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
+import Mention from '@tiptap/extension-mention';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
@@ -27,6 +28,13 @@ import {
     XMarkIcon,
 } from '@heroicons/react/24/outline';
 
+import { useAuthStore } from '@/lib/store';
+import type { MentionUser } from '@/components/MentionTextarea';
+import {
+    createMentionItemsResolver,
+    createRichTextMentionSuggestionRender,
+} from '@/components/richTextMentionSuggestion';
+
 export type RichTextEditorProps = {
     value: string;
     onChange: (html: string) => void;
@@ -34,6 +42,8 @@ export type RichTextEditorProps = {
     className?: string;
     /** Min height of the editable area */
     minHeightClassName?: string;
+    /** Users available for @mentions (same rules as the task note field). */
+    mentionUsers?: MentionUser[];
 };
 
 function ToolbarButton({
@@ -182,9 +192,28 @@ export default function RichTextEditor({
     placeholder = 'Write a detailed description…',
     className = '',
     minHeightClassName = 'min-h-[200px]',
+    mentionUsers = [],
 }: RichTextEditorProps) {
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
+
+    const currentUserId = useAuthStore((s) => s.user?.id);
+    const usersRef = useRef<MentionUser[]>(mentionUsers);
+    const currentUserIdRef = useRef<string | undefined>(currentUserId);
+    useEffect(() => {
+        usersRef.current = mentionUsers;
+    }, [mentionUsers]);
+    useEffect(() => {
+        currentUserIdRef.current = currentUserId;
+    }, [currentUserId]);
+
+    const mentionCtx = useMemo(
+        () => ({
+            usersRef,
+            currentUserIdRef,
+        }),
+        [],
+    );
 
     const [linkDialogOpen, setLinkDialogOpen] = useState(false);
     const [linkDialogInitialUrl, setLinkDialogInitialUrl] = useState('');
@@ -211,6 +240,18 @@ export default function RichTextEditor({
                     HTMLAttributes: {
                         class:
                             'text-primary-600 underline dark:text-primary-400 font-medium',
+                    },
+                }),
+                Mention.configure({
+                    HTMLAttributes: {
+                        class:
+                            'mention rounded px-0.5 font-medium text-primary-700 bg-primary-50 dark:text-primary-300 dark:bg-primary-900/25',
+                    },
+                    suggestion: {
+                        char: '@',
+                        allowSpaces: true,
+                        items: createMentionItemsResolver(mentionCtx),
+                        render: createRichTextMentionSuggestionRender(mentionCtx),
                     },
                 }),
                 TextAlign.configure({

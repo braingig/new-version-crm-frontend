@@ -34,6 +34,10 @@ const CONFIG: Parameters<typeof DOMPurify.sanitize>[1] = {
         'style',
         'data-type',
         'data-checked',
+        /* TipTap @mention spans */
+        'data-id',
+        'data-label',
+        'data-mention-suggestion-char',
     ],
     ALLOW_DATA_ATTR: false,
 };
