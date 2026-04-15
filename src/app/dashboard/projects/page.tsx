@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
-import { GET_PROJECTS, CREATE_PROJECT } from '@/lib/graphql/queries';
+import { GET_PROJECTS, GET_USERS } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import { 
     FolderIcon, 
@@ -15,6 +15,7 @@ import {
     ClockIcon
 } from '@heroicons/react/24/outline';
 import AddProjectModal from '@/components/AddProjectModal';
+import { RichTextContent } from '@/components/RichTextContent';
 
 export default function ProjectsPage() {
     const router = useRouter();
@@ -26,7 +27,9 @@ export default function ProjectsPage() {
     const { data, loading, refetch } = useQuery(GET_PROJECTS, {
         variables: statusFilter !== 'all' ? { filters: { status: statusFilter } } : {}
     });
+    const { data: usersData } = useQuery(GET_USERS);
     const projects = data?.projects || [];
+    const mentionUsers = usersData?.users || [];
 
     const handleProjectAdded = () => {
         refetch();
@@ -187,9 +190,10 @@ export default function ProjectsPage() {
                                         <div className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
                                             {project.name}
                                         </div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 break-words overflow-hidden">
-                                            {project.description}
-                                        </p>
+                                        <RichTextContent
+                                            htmlOrText={project.description}
+                                            className="mb-4 line-clamp-2 break-words overflow-hidden text-gray-600 dark:text-gray-400"
+                                        />
                                     </div>
                                     <span className={`flex-shrink-0 inline-block px-2 py-1 text-xs font-medium rounded-full outline-none ring-0 border-0 focus:outline-none focus:ring-0 ${getStatusColor(project.status)}`}>
                                         {project.status}
@@ -255,9 +259,10 @@ export default function ProjectsPage() {
                                                 <div className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
                                                     {project.name}
                                                 </div>
-                                                <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">
-                                                    {project.description}
-                                                </div>
+                                                <RichTextContent
+                                                    htmlOrText={project.description}
+                                                    className="text-gray-500 dark:text-gray-400 line-clamp-1"
+                                                />
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
@@ -286,6 +291,7 @@ export default function ProjectsPage() {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onProjectAdded={handleProjectAdded}
+                mentionUsers={mentionUsers}
             />
         </div>
     );

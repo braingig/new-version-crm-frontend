@@ -37,6 +37,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
 import { htmlToPlainText, isProbablyRichTextHtml } from '@/lib/richText';
+import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 
 const priorityColors: { [key: string]: string } = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -550,6 +551,7 @@ export default function TasksPage() {
     const projectDropdownRef = useRef<HTMLDivElement>(null);
     const [showListModal, setShowListModal] = useState(false);
     const [editingList, setEditingList] = useState<any | null>(null);
+    const [listDescription, setListDescription] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingTask, setEditingTask] = useState<any | null>(null);
     const [parentTaskForModal, setParentTaskForModal] = useState<{ id: string; projectId: string; title: string } | null>(null);
@@ -882,11 +884,13 @@ export default function TasksPage() {
             return;
         }
         setEditingList(null);
+        setListDescription('');
         setShowListModal(true);
     };
 
     const handleEditList = (list: any) => {
         setEditingList(list);
+        setListDescription(list?.description || '');
         setShowListModal(true);
     };
 
@@ -911,7 +915,7 @@ export default function TasksPage() {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const name = (formData.get('name') as string)?.trim();
-        const description = (formData.get('description') as string | null)?.trim() || undefined;
+        const description = listDescription?.trim() || undefined;
         if (!name) {
             showToast({ variant: 'warning', message: 'Folder name is required.' });
             return;
@@ -939,6 +943,7 @@ export default function TasksPage() {
             }
             setShowListModal(false);
             setEditingList(null);
+            setListDescription('');
             await refetchLists();
         } catch (error) {
             console.error('Error saving list', error);
@@ -1457,7 +1462,7 @@ export default function TasksPage() {
                                 {editingList ? 'Edit Folder' : 'Create Folder'}
                             </h2>
                             <button
-                                onClick={() => { setShowListModal(false); setEditingList(null); }}
+                                onClick={() => { setShowListModal(false); setEditingList(null); setListDescription(''); }}
                                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                             >
                                 <XMarkIcon className="h-5 w-5" />
@@ -1477,20 +1482,24 @@ export default function TasksPage() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Description
-                                </label>
-                                <textarea
-                                    name="description"
-                                    defaultValue={editingList?.description || ''}
-                                    rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                <DescriptionRichTextField
+                                    label="Description"
+                                    value={listDescription}
+                                    onChange={setListDescription}
+                                    placeholder="Add folder description..."
+                                    minHeightClassName="min-h-[120px]"
+                                    mentionUsers={users}
+                                    helperText={
+                                        <>
+                                            Type <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> to mention someone.
+                                        </>
+                                    }
                                 />
                             </div>
                             <div className="flex justify-end space-x-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => { setShowListModal(false); setEditingList(null); }}
+                                    onClick={() => { setShowListModal(false); setEditingList(null); setListDescription(''); }}
                                     className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
                                 >
                                     Cancel

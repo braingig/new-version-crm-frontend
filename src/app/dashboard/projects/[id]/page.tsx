@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@apollo/client';
 import { useState } from 'react';
-import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, DELETE_PROJECT } from '@/lib/graphql/queries';
+import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, DELETE_PROJECT, GET_USERS } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import {
     ArrowLeftIcon,
@@ -19,6 +19,7 @@ import {
     TrashIcon,
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
+import { RichTextContent } from '@/components/RichTextContent';
 
 const statusColors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
@@ -49,11 +50,13 @@ export default function ProjectDetailsPage() {
         variables: { projectId },
         skip: !projectId,
     });
+    const { data: usersData } = useQuery(GET_USERS);
     const [deleteProject] = useMutation(DELETE_PROJECT);
 
     const project = data?.project;
     const tasks = tasksData?.tasks ?? [];
     const taskLists = listsData?.taskLists ?? [];
+    const mentionUsers = usersData?.users ?? [];
     const openTaskCount = tasks.filter((t: any) => t.status !== 'COMPLETED').length;
 
     const formatCurrency = (amount: number) =>
@@ -176,9 +179,10 @@ export default function ProjectDetailsPage() {
                             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                                 Description
                             </h2>
-                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                {project.description}
-                            </p>
+                            <RichTextContent
+                                htmlOrText={project.description}
+                                className="text-gray-700 dark:text-gray-300"
+                            />
                         </div>
                     )}
 
@@ -303,6 +307,7 @@ export default function ProjectDetailsPage() {
                 onClose={() => setIsEditModalOpen(false)}
                 onProjectUpdated={() => refetch()}
                 project={project}
+                mentionUsers={mentionUsers}
             />
 
             {showDeleteConfirm && (

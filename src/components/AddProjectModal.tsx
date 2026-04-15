@@ -6,11 +6,15 @@ import { CREATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useToast } from '@/components/ToastProvider';
 import ModalDropdown from '@/components/ModalDropdown';
+import DescriptionRichTextField from '@/components/DescriptionRichTextField';
+import { isEmptyRichTextHtml } from '@/lib/richText';
+import type { MentionUser } from '@/components/MentionTextarea';
 
 interface AddProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProjectAdded: () => void;
+  mentionUsers?: MentionUser[];
 }
 
 interface FormData {
@@ -25,7 +29,7 @@ interface FormData {
   clientName: string;
 }
 
-export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: AddProjectModalProps) {
+export default function AddProjectModal({ isOpen, onClose, onProjectAdded, mentionUsers = [] }: AddProjectModalProps) {
   const { showToast } = useToast();
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -43,6 +47,10 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEmptyRichTextHtml(formData.description)) {
+      showToast({ variant: 'warning', message: 'Project description is required.' });
+      return;
+    }
     
     try {
       await createProject({
@@ -224,17 +232,19 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded }: Add
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Description *
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
+              <DescriptionRichTextField
+                label="Description"
                 required
-                rows={3}
+                value={formData.description}
+                onChange={(html) => setFormData((prev) => ({ ...prev, description: html }))}
                 placeholder="Describe the project scope, objectives, and deliverables..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:text-white"
+                minHeightClassName="min-h-[160px]"
+                mentionUsers={mentionUsers}
+                helperText={
+                  <>
+                    Type <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> to mention someone.
+                  </>
+                }
               />
             </div>
 
