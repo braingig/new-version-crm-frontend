@@ -15,7 +15,7 @@ import {
 import { useAuthStore } from '@/lib/store';
 import { getAllowedRoutes } from '@/lib/permissions';
 import Image from 'next/image';
-// import logo from '../../public/images/logos/logosquare.png'
+import logo from '../../public/images/logos/logosquare.png'
 const allNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Employees', href: '/dashboard/employees', icon: UserGroupIcon },
@@ -48,7 +48,7 @@ export default function Sidebar() {
                             width="150"
                             height="96"
                             priority
-                            src={"/images/logos/logosquare.png"}
+                            src={logo}
                             alt="Logo"
                         />
                     </Link>
