@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
-import { MentionTextarea, type MentionUser } from '@/components/MentionTextarea';
+import type { MentionUser } from '@/components/MentionTextarea';
 import RichTextEditor from '@/components/RichTextEditor';
 import ModalDropdown from '@/components/ModalDropdown';
+import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
 
 export default function TaskModal({
@@ -110,7 +111,7 @@ export default function TaskModal({
             description: !isEmptyRichTextHtml(formData.description)
                 ? formData.description
                 : undefined,
-            note: formData.note.trim() || undefined,
+            note: !isEmptyRichTextHtml(formData.note) ? formData.note : undefined,
             priority: formData.priority,
             projectId: formData.projectId || parentTask?.projectId,
             estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
@@ -193,16 +194,18 @@ export default function TaskModal({
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note</label>
-                        <MentionTextarea
-                            users={users}
+                        <DescriptionRichTextField
+                            label="Note"
                             value={formData.note}
-                            onChange={(e) =>
-                                setFormData({ ...formData, note: e.target.value })
-                            }
-                            rows={2}
+                            onChange={(html) => setFormData({ ...formData, note: html })}
                             placeholder="Quick note… Type @ to mention someone."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            minHeightClassName="min-h-[120px]"
+                            mentionUsers={users as MentionUser[]}
+                            helperText={
+                                <>
+                                    Type <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> to mention someone.
+                                </>
+                            }
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">

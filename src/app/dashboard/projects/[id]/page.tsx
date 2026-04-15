@@ -192,9 +192,10 @@ export default function ProjectDetailsPage() {
                                 <PencilIcon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
                                 Note
                             </h2>
-                            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                {project.note}
-                            </p>
+                            <RichTextContent
+                                htmlOrText={project.note}
+                                className="text-gray-700 dark:text-gray-300"
+                            />
                         </div>
                     )}
 
@@ -206,12 +207,38 @@ export default function ProjectDetailsPage() {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             {tasks.length} total · {openTaskCount} open
                         </p>
-                        <Link
-                            href={`/dashboard/tasks?projectId=${projectId}`}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
-                        >
-                            View tasks
-                        </Link>
+                        {tasks.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                No tasks found for this project.
+                            </p>
+                        ) : (
+                            <div className="space-y-2">
+                                {tasks.map((task: any) => (
+                                    <Link
+                                        key={task.id}
+                                        href={`/dashboard/tasks/${task.id}`}
+                                        className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                    >
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate pr-3">
+                                            {task.title}
+                                        </span>
+                                        <span
+                                            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                task.status === 'COMPLETED'
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                    : task.status === 'IN_PROGRESS'
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                        : task.status === 'REVIEW'
+                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                            }`}
+                                        >
+                                            {task.status?.replace(/_/g, ' ')}
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
 

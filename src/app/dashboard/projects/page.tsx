@@ -1,28 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useQuery } from '@apollo/client';
 import { GET_PROJECTS, GET_USERS } from '@/lib/graphql/queries';
-import { useToast } from '@/components/ToastProvider';
 import { 
     FolderIcon, 
     PlusIcon, 
     CalendarIcon,
     CurrencyDollarIcon,
-    UserGroupIcon,
-    ClockIcon
+    UserGroupIcon
 } from '@heroicons/react/24/outline';
 import AddProjectModal from '@/components/AddProjectModal';
 import { RichTextContent } from '@/components/RichTextContent';
 
 export default function ProjectsPage() {
-    const router = useRouter();
-    const { showToast } = useToast();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     const { data, loading, refetch } = useQuery(GET_PROJECTS, {
         variables: statusFilter !== 'all' ? { filters: { status: statusFilter } } : {}
@@ -30,6 +25,19 @@ export default function ProjectsPage() {
     const { data: usersData } = useQuery(GET_USERS);
     const projects = data?.projects || [];
     const mentionUsers = usersData?.users || [];
+    const selectedProject = projects.find((project: any) => project.id === selectedProjectId) || projects[0];
+
+    useEffect(() => {
+        if (projects.length === 0) {
+            setSelectedProjectId('');
+            return;
+        }
+
+        const selectedStillExists = projects.some((project: any) => project.id === selectedProjectId);
+        if (!selectedStillExists) {
+            setSelectedProjectId(projects[0].id);
+        }
+    }, [projects, selectedProjectId]);
 
     const handleProjectAdded = () => {
         refetch();
@@ -135,28 +143,6 @@ export default function ProjectsPage() {
                         On Hold
                     </button>
                 </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-colors ${
-                            viewMode === 'grid'
-                                ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
-                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                        }`}
-                    >
-                        <FolderIcon className="h-5 w-5" />
-                    </button>
-                    <button
-                        onClick={() => setViewMode('table')}
-                        className={`p-2 rounded-lg transition-colors ${
-                            viewMode === 'table'
-                                ? 'bg-primary-100 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
-                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-                        }`}
-                    >
-                        <ClockIcon className="h-5 w-5" />
-                    </button>
-                </div>
             </div>
 
             {projects.length === 0 ? (
@@ -176,114 +162,102 @@ export default function ProjectsPage() {
                         </button>
                     </div>
                 </div>
-            ) : viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project: any) => (
-                        <Link
-                            key={project.id}
-                            href={`/dashboard/projects/${project.id}`}
-                            className="card hover:shadow-lg transition-shadow block group"
-                        >
-                            <div className="p-6">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-lg font-medium text-gray-900 dark:text-white mb-2 hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
+                    <div className="card overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Projects</h3>
+                        </div>
+                        <div className="max-h-[70vh] overflow-y-auto">
+                            {projects.map((project: any) => {
+                                const isActive = selectedProject?.id === project.id;
+                                return (
+                                    <button
+                                        key={project.id}
+                                        type="button"
+                                        onClick={() => setSelectedProjectId(project.id)}
+                                        className={`w-full border-b border-gray-100 dark:border-gray-700 px-4 py-3 text-left transition-colors ${
+                                            isActive
+                                                ? 'bg-primary-50 dark:bg-primary-900/20'
+                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                                        }`}
+                                    >
+                                        <p className={`text-sm font-medium ${isActive ? 'text-primary-700 dark:text-primary-300' : 'text-gray-900 dark:text-white'}`}>
                                             {project.name}
+                                        </p>
+                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
+                                            {project.clientName}
+                                        </p>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {selectedProject ? (
+                        <div className="card">
+                            <div className="p-6">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <Link
+                                                href={`/dashboard/projects/${selectedProject.id}`}
+                                                className="text-xl font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
+                                            >
+                                                {selectedProject.name}
+                                            </Link>
+                                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedProject.status)}`}>
+                                                {selectedProject.status}
+                                            </span>
                                         </div>
                                         <RichTextContent
-                                            htmlOrText={project.description}
-                                            className="mb-4 line-clamp-2 break-words overflow-hidden text-gray-600 dark:text-gray-400"
+                                            htmlOrText={selectedProject.description}
+                                            className="mt-3 text-sm text-gray-600 dark:text-gray-400"
                                         />
                                     </div>
-                                    <span className={`flex-shrink-0 inline-block px-2 py-1 text-xs font-medium rounded-full outline-none ring-0 border-0 focus:outline-none focus:ring-0 ${getStatusColor(project.status)}`}>
-                                        {project.status}
-                                    </span>
-                                </div>
-                                
-                                <div className="space-y-2 mb-4">
-                                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                        <CurrencyDollarIcon className="h-4 w-4 mr-2" />
-                                        {formatCurrency(project.budget)}
-                                    </div>
-                                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                        <UserGroupIcon className="h-4 w-4 mr-2" />
-                                        {project.clientName}
-                                    </div>
-                                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                        <CalendarIcon className="h-4 w-4 mr-2" />
-                                        {formatDate(project.startDate)} - {formatDate(project.endDate)}
-                                    </div>
+                                    <Link
+                                        href={`/dashboard/projects/${selectedProject.id}`}
+                                        className="inline-flex shrink-0 items-center rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
+                                    >
+                                        Open Details
+                                    </Link>
                                 </div>
 
-                                <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        Created {formatDate(project.createdAt)}
+                                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                            <CurrencyDollarIcon className="h-4 w-4 mr-2" />
+                                            Budget
+                                        </div>
+                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
+                                            {formatCurrency(selectedProject.budget)}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                            <UserGroupIcon className="h-4 w-4 mr-2" />
+                                            Client
+                                        </div>
+                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
+                                            {selectedProject.clientName}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:col-span-2">
+                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                                            <CalendarIcon className="h-4 w-4 mr-2" />
+                                            Timeline
+                                        </div>
+                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
+                                            {formatDate(selectedProject.startDate)} - {formatDate(selectedProject.endDate)}
+                                        </p>
+                                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                            Created {formatDate(selectedProject.createdAt)}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
-                        </Link>
-                    ))}
-                </div>
-            ) : (
-                <div className="card overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead className="bg-gray-50 dark:bg-gray-800">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Project
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Client
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Budget
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Status
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Timeline
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {projects.map((project: any) => (
-                                    <tr
-                                        key={project.id}
-                                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer group"
-                                        onClick={() => router.push(`/dashboard/projects/${project.id}`)}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline">
-                                                    {project.name}
-                                                </div>
-                                                <RichTextContent
-                                                    htmlOrText={project.description}
-                                                    className="text-gray-500 dark:text-gray-400 line-clamp-1"
-                                                />
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                            {project.clientName}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                            {formatCurrency(project.budget)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full outline-none ring-0 border-0 focus:outline-none focus:ring-0 ${getStatusColor(project.status)}`}>
-                                                {project.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                            {formatDate(project.startDate)} - {formatDate(project.endDate)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                        </div>
+                    ) : null}
                 </div>
             )}
 

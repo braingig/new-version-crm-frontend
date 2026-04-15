@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
 import { useToast } from '@/components/ToastProvider';
@@ -18,7 +18,6 @@ import {
 } from '@heroicons/react/24/outline';
 import {
     ChevronDownIcon,
-    ChevronUpIcon,
     UserCircleIcon,
 } from '@heroicons/react/24/solid';
 import {
@@ -547,8 +546,6 @@ export default function TasksPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showFilters, setShowFilters] = useState(false);
-    const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-    const projectDropdownRef = useRef<HTMLDivElement>(null);
     const [showListModal, setShowListModal] = useState(false);
     const [editingList, setEditingList] = useState<any | null>(null);
     const [listDescription, setListDescription] = useState('');
@@ -558,6 +555,9 @@ export default function TasksPage() {
     const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
+    const [renderedListId, setRenderedListId] = useState<string | null>(null);
+    const [isListContentVisible, setIsListContentVisible] = useState(true);
+    const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [filters, setFilters] = useState({
         assignedToId: '',
         priority: '',
@@ -596,6 +596,7 @@ export default function TasksPage() {
     const projects = projectsData?.projects || [];
     const users = usersData?.users || [];
     const taskLists = listsData?.taskLists || [];
+    const selectedProject = projects.find((project: any) => project.id === selectedProjectId);
 
     // Initialize selected project / list from URL (?projectId=, ?listId=) or fallbacks.
     // IMPORTANT: This should only run when there is no existing user selection,
@@ -614,6 +615,16 @@ export default function TasksPage() {
         }
     }, [projects, projectIdFromUrl, selectedProjectId]);
 
+    useEffect(() => {
+        if (!selectedProjectId) return;
+        setExpandedProjects((prev) => {
+            if (prev.has(selectedProjectId)) return prev;
+            const next = new Set(prev);
+            next.add(selectedProjectId);
+            return next;
+        });
+    }, [selectedProjectId]);
+
     // When lists are loaded for the selected project, honor ?listId= from URL if valid.
     // Again, don't override if the user has already picked a list.
     useEffect(() => {
@@ -631,30 +642,46 @@ export default function TasksPage() {
         }
     }, [selectedProjectId, taskLists, listIdFromUrl, selectedListId]);
 
-    // When project has no lists or selected list is not in current project, clear selection so "Add Task" is never shown
-    // Keep 'unassigned' selected if user is viewing tasks with no list
+    // Keep selected folder valid for the current project and auto-focus a folder view.
     useEffect(() => {
-        if (selectedListId === 'unassigned') return;
-        if (selectedListId && taskLists.length > 0 && !taskLists.some((l: any) => l.id === selectedListId)) {
-            setSelectedListId(null);
-        }
-        if (taskLists.length === 0 && selectedListId) {
-            setSelectedListId(null);
-        }
-    }, [selectedProjectId, taskLists, selectedListId]);
+        const unassignedExists = (tasks || []).some((t: any) => !t.listId);
+        const hasCurrentList = !!selectedListId && selectedListId !== 'unassigned' && taskLists.some((l: any) => l.id === selectedListId);
+        const hasCurrentUnassigned = selectedListId === 'unassigned' && unassignedExists;
+        if (hasCurrentList || hasCurrentUnassigned) return;
 
-    // Close project dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (projectDropdownRef.current && !projectDropdownRef.current.contains(e.target as Node)) {
-                setProjectDropdownOpen(false);
-            }
-        };
-        if (projectDropdownOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-            return () => document.removeEventListener('mousedown', handleClickOutside);
+        if (taskLists.length > 0) {
+            setSelectedListId(taskLists[0].id);
+            return;
         }
-    }, [projectDropdownOpen]);
+
+        if (unassignedExists) {
+            setSelectedListId('unassigned');
+            return;
+        }
+
+        setSelectedListId(null);
+    }, [selectedProjectId, taskLists, selectedListId, tasks]);
+
+    useEffect(() => {
+        if (renderedListId === null) {
+            setRenderedListId(selectedListId);
+            setIsListContentVisible(true);
+            return;
+        }
+
+        if (selectedListId === renderedListId) {
+            setIsListContentVisible(true);
+            return;
+        }
+
+        setIsListContentVisible(false);
+        const switchTimer = window.setTimeout(() => {
+            setRenderedListId(selectedListId);
+            setIsListContentVisible(true);
+        }, 140);
+
+        return () => window.clearTimeout(switchTimer);
+    }, [selectedListId, renderedListId]);
 
     const allTasksFlattened = useMemo(() => flattenTasks(tasks), [tasks]);
 
@@ -720,6 +747,11 @@ export default function TasksPage() {
         });
         return map;
     }, [tasks]);
+
+    const activeListIdForView = renderedListId ?? selectedListId;
+    const selectedRealList = selectedListId
+        ? taskLists.find((l: any) => l.id === selectedListId)
+        : null;
 
     const handleCreateTask = () => {
         if (projects.length === 0) {
@@ -895,11 +927,14 @@ export default function TasksPage() {
     };
 
     const handleDeleteList = async (list: any) => {
-        if (!window.confirm('Delete this folder? All tasks in this folder will also be deleted.')) return;
+        if (!window.confirm('Delete this folder? Tasks in it will be moved to "No folder".')) return;
         try {
             await deleteTaskListMutation({
                 variables: { id: list.id },
             });
+            if (selectedListId === list.id) {
+                setSelectedListId('unassigned');
+            }
             await Promise.all([refetchLists(), refetchTasks()]);
             showToast({ variant: 'success', message: 'Folder deleted successfully.' });
         } catch (error) {
@@ -966,7 +1001,144 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-4">
+            <aside className="card overflow-hidden h-fit">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Projects</h3>
+                </div>
+                <div className="max-h-[75vh] overflow-y-auto">
+                    {projects.length === 0 ? (
+                        <div className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">No projects</div>
+                    ) : (
+                        projects.map((project: any) => {
+                            const isActive = selectedProjectId === project.id;
+                            const isExpanded = expandedProjects.has(project.id);
+                            const visibleFolders = isActive ? taskLists : [];
+                            return (
+                                <div
+                                    key={project.id}
+                                    className="border-b border-gray-100 dark:border-gray-700"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (selectedProjectId === project.id) {
+                                                setExpandedProjects((prev) => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(project.id)) {
+                                                        next.delete(project.id);
+                                                    } else {
+                                                        next.add(project.id);
+                                                    }
+                                                    return next;
+                                                });
+                                                return;
+                                            }
+
+                                            setSelectedProjectId(project.id);
+                                            setSelectedListId(null);
+                                            setExpandedProjects((prev) => {
+                                                if (prev.has(project.id)) return prev;
+                                                const next = new Set(prev);
+                                                next.add(project.id);
+                                                return next;
+                                            });
+                                        }}
+                                        className={`flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
+                                            isActive
+                                                ? 'bg-gray-100 dark:bg-gray-800/70'
+                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                                        }`}
+                                    >
+                                        <FolderIcon
+                                            className={`h-4 w-4 shrink-0 ${
+                                                isActive ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'
+                                            }`}
+                                            aria-hidden="true"
+                                        />
+                                        <span className="min-w-0 flex-1 pr-2">
+                                            <span className={`block text-sm font-medium ${isActive ? 'text-gray-900 dark:text-white' : 'text-gray-800 dark:text-gray-200'}`}>
+                                                {project.name}
+                                            </span>
+                                        </span>
+                                        <span
+                                            className={`inline-flex h-5 w-5 items-center justify-center transition-transform duration-200 ease-out text-gray-500 dark:text-gray-400 ${
+                                                isExpanded ? 'rotate-180' : ''
+                                            }`}
+                                            aria-hidden="true"
+                                        >
+                                            <ChevronDownIcon className="h-4 w-4" />
+                                        </span>
+                                    </button>
+
+                                    {isActive && (
+                                        <div className="bg-gray-50/80 dark:bg-gray-900/30 px-3">
+                                            <div
+                                                className={`grid overflow-hidden transition-all duration-300 ease-in-out ${
+                                                    isExpanded ? 'grid-rows-[1fr] opacity-100 pb-2' : 'grid-rows-[0fr] opacity-0 pb-0'
+                                                }`}
+                                            >
+                                                <div className="min-h-0">
+                                                    <div className="ml-2 border-l border-gray-200 dark:border-gray-700 pl-3">
+                                            {visibleFolders.length > 0 ? (
+                                                visibleFolders.map((list: any) => {
+                                                    const isListActive = selectedListId === list.id;
+                                                    const listCount = (tasksByListId.get(list.id) || []).length;
+                                                    return (
+                                                        <button
+                                                            key={list.id}
+                                                            type="button"
+                                                            onClick={() => setSelectedListId(list.id)}
+                                                            className={`mt-1.5 flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+                                                                isListActive
+                                                                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                                            }`}
+                                                        >
+                                                            <span className="inline-flex items-center gap-2 truncate">
+                                                                <span className="text-gray-500 dark:text-gray-400">✓</span>
+                                                                <span className="truncate">{list.name}</span>
+                                                            </span>
+                                                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">{listCount}</span>
+                                                        </button>
+                                                    );
+                                                })
+                                            ) : (
+                                                <p className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                                                    No folders in this project
+                                                </p>
+                                            )}
+
+                                            {(tasksByListId.get('unassigned')?.length ?? 0) > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSelectedListId('unassigned')}
+                                                    className={`mt-1.5 flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
+                                                        selectedListId === 'unassigned'
+                                                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200'
+                                                            : 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                                                    }`}
+                                                >
+                                                    <span className="inline-flex items-center gap-2 truncate">
+                                                        <span>✓</span>
+                                                        <span className="truncate">No folder</span>
+                                                    </span>
+                                                    <span className="ml-2 text-xs">{tasksByListId.get('unassigned')!.length}</span>
+                                                </button>
+                                            )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </aside>
+
+            <div className="px-4 sm:px-6 lg:px-8 py-6">
             {/* Header */}
             <div className="mb-6">
                 <div className="flex flex-col gap-4 sm:gap-6">
@@ -978,55 +1150,13 @@ export default function TasksPage() {
                         </p>
                     </div>
 
-                    {/* Toolbar: Project selector + Workspace + Filters + Add Folder */}
+                    {/* Toolbar */}
                     <div className="flex flex-wrap items-center gap-3">
-                        {/* Project (folder) selector - custom dropdown */}
-                        <div className="relative min-w-0" ref={projectDropdownRef}>
-                            <button
-                                type="button"
-                                onClick={() => setProjectDropdownOpen((open) => !open)}
-                                aria-haspopup="listbox"
-                                aria-expanded={projectDropdownOpen}
-                                aria-label="Select project folder"
-                                className="inline-flex items-center w-full min-w-[180px] max-w-[280px] py-2.5 pl-3 pr-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:focus:border-primary-400 transition-colors text-left"
-                            >
-                                <FolderIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0" aria-hidden />
-                                <span className="flex-1 min-w-0 truncate ml-2.5 text-sm font-medium text-gray-900 dark:text-white">
-                                    {projects.length === 0 ? 'No projects' : (projects.find((p: any) => p.id === selectedProjectId)?.name ?? 'Select project')}
-                                </span>
-                                <ChevronDownIcon className={`h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0 ml-1 transition-transform ${projectDropdownOpen ? 'rotate-180' : ''}`} aria-hidden />
-                            </button>
-                            {projectDropdownOpen && (
-                                <div
-                                    role="listbox"
-                                    className="absolute left-0 top-full mt-1.5 min-w-[220px] max-h-[280px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg z-50 py-1.5"
-                                >
-                                    {projects.length === 0 ? (
-                                        <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">No projects</div>
-                                    ) : (
-                                        projects.map((project: any) => (
-                                            <button
-                                                key={project.id}
-                                                type="button"
-                                                role="option"
-                                                aria-selected={selectedProjectId === project.id}
-                                                onClick={() => {
-                                                    setSelectedProjectId(project.id);
-                                                    setProjectDropdownOpen(false);
-                                                }}
-                                                className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2.5 ${
-                                                    selectedProjectId === project.id
-                                                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                                                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                }`}
-                                            >
-                                                <FolderIcon className="h-4 w-4 text-gray-500 dark:text-gray-400 flex-shrink-0 opacity-70" />
-                                                <span className="truncate">{project.name}</span>
-                                            </button>
-                                        ))
-                                    )}
-                                </div>
-                            )}
+                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5">
+                            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Selected project</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {selectedProject?.name || 'No project selected'}
+                            </p>
                         </div>
 
                         <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end sm:justify-start">
@@ -1042,15 +1172,13 @@ export default function TasksPage() {
                                     </span>
                                 )}
                             </button>
-                            {!selectedListId && (
-                                <button
-                                    onClick={handleCreateList}
-                                    className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
-                                >
-                                    <PlusIcon className="h-4 w-4 mr-2" />
-                                    Add Folder
-                                </button>
-                            )}
+                            <button
+                                onClick={handleCreateList}
+                                className="inline-flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 transition-colors"
+                            >
+                                <PlusIcon className="h-4 w-4 mr-2" />
+                                Add Folder
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1132,243 +1260,142 @@ export default function TasksPage() {
                     </button>
                 </div>
             ) : (
-                <div className="space-y-6 pb-4">
-                    {!selectedListId ? (
-                        // Show only Folders table
-                        <div className="card overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                                <h3 className="text-sm font-semibold text-gray-900">Folders</h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Name
-                                            </th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Progress
-                                            </th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Tasks
-                                            </th>
-                                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Owner
-                                            </th>
-                                            <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                        {taskLists.map((list: any) => {
-                                            const listTasks = tasksByListId.get(list.id) || [];
-                                            const completed = listTasks.filter((t: any) => t.status === 'COMPLETED').length;
-                                            const total = listTasks.length;
-                                            return (
-                                                <tr
-                                                    key={list.id}
-                                                    className="cursor-pointer hover:bg-gray-50"
-                                                    onClick={() => setSelectedListId(list.id)}
-                                                >
-                                                    <td className="px-4 py-2 text-sm text-gray-900">
-                                                        {list.name}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-sm text-gray-600">
-                                                        {completed}/{total || 0}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-sm text-gray-600">
-                                                        {total}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-sm text-gray-400">
-                                                        —{/* placeholder owner */}
-                                                    </td>
-                                                    <td className="px-4 py-2 text-right">
-                                                        <div className="inline-flex items-center gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleEditList(list);
-                                                                }}
-                                                                className="inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
-                                                            >
-                                                                <PencilIcon className="h-3.5 w-3.5 mr-1" />
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDeleteList(list);
-                                                                }}
-                                                                className="inline-flex items-center rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                                                            >
-                                                                <TrashIcon className="h-3.5 w-3.5 mr-1" />
-                                                                Delete
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                        {(tasksByListId.get('unassigned')?.length ?? 0) > 0 && (
-                                            <tr
-                                                className="cursor-pointer hover:bg-amber-50/50 border-t border-amber-200/50"
-                                                onClick={() => setSelectedListId('unassigned')}
-                                            >
-                                                <td className="px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
-                                                    No folder (unassigned)
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-600">
-                                                    {tasksByListId.get('unassigned')!.filter((t: any) => t.status === 'COMPLETED').length}/{tasksByListId.get('unassigned')!.length}
-                                                </td>
-                                                <td className="px-4 py-2 text-sm text-gray-600">
-                                                    {tasksByListId.get('unassigned')!.length}
-                                                </td>
-                                                <td className="px-4 py-2 text-xs text-amber-600 dark:text-amber-400">
-                                                    Assign via Edit
-                                                </td>
-                                                <td className="px-4 py-2" />
-                                            </tr>
-                                        )}
-                                        {taskLists.length === 0 && (
-                                            <tr>
-                                                <td
-                                                    className="px-4 py-6 text-center"
-                                                    colSpan={5}
-                                                >
-                                                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                        No folders yet. Tasks can only be created inside a folder.
-                                                    </p>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                                                        Create a folder using &quot;+ Add Folder&quot; above to add tasks.
-                                                    </p>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    ) : (
-                        // Show breadcrumb + tasks table for selected folder
-                        <>
-                            <div className="flex items-center justify-between">
-                                <nav className="text-xs text-gray-500">
+                <div className={`space-y-6 pb-4 transition-all duration-200 ease-out ${isListContentVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+                    <div className="flex items-center justify-between">
+                        <nav className="text-xs text-gray-500">
+                            <span>{selectedProject?.name || 'Project'}</span>
+                            <span className="mx-1">/</span>
+                            <span className="font-medium text-gray-700">
+                                {activeListIdForView === 'unassigned'
+                                    ? 'No folder'
+                                    : selectedRealList?.name || taskLists.find((l: any) => l.id === activeListIdForView)?.name || 'Folder'}
+                            </span>
+                        </nav>
+                        <div className="inline-flex items-center gap-2">
+                            {selectedRealList && (
+                                <>
                                     <button
                                         type="button"
-                                        onClick={() => setSelectedListId(null)}
-                                        className="hover:underline"
+                                        onClick={() => {
+                                            const currentList = selectedRealList;
+                                            if (currentList) handleEditList(currentList);
+                                        }}
+                                        className="inline-flex items-center rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
                                     >
-                                        Folders
+                                        <PencilIcon className="h-3.5 w-3.5 mr-1" />
+                                        Edit Folder
                                     </button>
-                                    <span className="mx-1">/</span>
-                                    <span className="font-medium text-gray-700">
-                                        {selectedListId === 'unassigned'
-                                            ? 'No folder (unassigned)'
-                                            : taskLists.find((l: any) => l.id === selectedListId)?.name || 'Selected folder'}
-                                    </span>
-                                </nav>
-                            </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const currentList = selectedRealList;
+                                            if (currentList) handleDeleteList(currentList);
+                                        }}
+                                        className="inline-flex items-center rounded-md border border-red-200 px-2.5 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                                    >
+                                        <TrashIcon className="h-3.5 w-3.5 mr-1" />
+                                        Delete Folder
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
 
-                            <div className="card overflow-hidden">
-                                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-gray-900">
-                                            Tasks in folder
-                                        </h3>
-                                        <p className="text-xs text-gray-500">
-                                            {selectedListId === 'unassigned'
-                                                ? 'These tasks have no folder. Open a task and set its folder to move it into a folder.'
-                                                : 'Click a task name to see full details.'}
-                                        </p>
-                                    </div>
-                                    {selectedListId !== 'unassigned' && (
-                                        <button
-                                            onClick={() => handleAddTaskToList(selectedListId)}
-                                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
-                                        >
-                                            <PlusIcon className="h-4 w-4 mr-1" />
-                                            Add Task
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-gray-200">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Status
-                                                </th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Name
-                                                </th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Assignee
-                                                </th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Due date
-                                                </th>
-                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Priority
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {tasks
-                                                .filter((t: any) => (t.listId || 'unassigned') === selectedListId)
-                                                .map((task: any) => (
-                                                <tr
-                                                    key={task.id}
-                                                    className="hover:bg-gray-50 cursor-pointer"
-                                                    onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
-                                                >
-                                                        <td className="px-4 py-2 align-middle whitespace-nowrap w-[1%]">
-                                                            <span className={taskStatusBadgeClass(task.status)}>
-                                                                {statusLabels[task.status] || task.status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm text-gray-900">
-                                                            {task.title}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm text-gray-600">
-                                                            {(() => {
-                                                                const assignees = getTaskAssignees(task, users);
-                                                                if (assignees.length === 0) return 'Unassigned';
-                                                                if (assignees.length <= 2) {
-                                                                    return assignees.map((a) => a.name).join(', ');
-                                                                }
-                                                                return `${assignees[0].name}, ${assignees[1].name} +${assignees.length - 2}`;
-                                                            })()}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm text-gray-600">
-                                                            {task.dueDate
-                                                                ? new Date(task.dueDate).toLocaleDateString()
-                                                                : '—'}
-                                                        </td>
-                                                        <td className="px-4 py-2 text-sm text-gray-600">
-                                                            {task.priority}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            {tasks.filter((t: any) => (t.listId || 'unassigned') === selectedListId)
-                                                .length === 0 && (
-                                                <tr>
-                                                    <td
-                                                        className="px-4 py-4 text-sm text-gray-400 text-center"
-                                                        colSpan={5}
-                                                    >
-                                                        No tasks in this folder yet.
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    <div className="card overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-900">
+                                    Tasks in folder
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    {activeListIdForView === 'unassigned'
+                                        ? 'These tasks have no folder. Open a task and set its folder to move it into a folder.'
+                                        : 'Click a task name to see full details.'}
+                                </p>
                             </div>
-                        </>
-                    )}
+                            {selectedRealList && (
+                                <button
+                                    onClick={() => handleAddTaskToList(selectedRealList.id)}
+                                    className="inline-flex items-center px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
+                                >
+                                    <PlusIcon className="h-4 w-4 mr-1" />
+                                    Add Task
+                                </button>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Name
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Assignee
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Due date
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            Priority
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {tasks
+                                        .filter((t: any) => (t.listId || 'unassigned') === activeListIdForView)
+                                        .map((task: any) => (
+                                        <tr
+                                            key={task.id}
+                                            className="hover:bg-gray-50 cursor-pointer"
+                                            onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
+                                        >
+                                                <td className="px-4 py-2 align-middle whitespace-nowrap w-[1%]">
+                                                    <span className={taskStatusBadgeClass(task.status)}>
+                                                        {statusLabels[task.status] || task.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-900">
+                                                    {task.title}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600">
+                                                    {(() => {
+                                                        const assignees = getTaskAssignees(task, users);
+                                                        if (assignees.length === 0) return 'Unassigned';
+                                                        if (assignees.length <= 2) {
+                                                            return assignees.map((a) => a.name).join(', ');
+                                                        }
+                                                        return `${assignees[0].name}, ${assignees[1].name} +${assignees.length - 2}`;
+                                                    })()}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600">
+                                                    {task.dueDate
+                                                        ? new Date(task.dueDate).toLocaleDateString()
+                                                        : '—'}
+                                                </td>
+                                                <td className="px-4 py-2 text-sm text-gray-600">
+                                                    {task.priority}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {tasks.filter((t: any) => (t.listId || 'unassigned') === activeListIdForView)
+                                        .length === 0 && (
+                                        <tr>
+                                            <td
+                                                className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                colSpan={5}
+                                            >
+                                                No tasks in this folder yet.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1432,6 +1459,8 @@ export default function TasksPage() {
                         </div>
                     </div>
                 </div>
+            </div>
+
             </div>
 
             {/* Task Modal */}

@@ -349,7 +349,7 @@ export default function DashboardPage() {
 
     return (
         <div className="bg-gray-50/60 dark:bg-gray-950">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div className="">
                 <div className="mb-8">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div>
@@ -360,11 +360,11 @@ export default function DashboardPage() {
                                 Overview of projects and tasks
                             </p>
                         </div>
-                        <div className="inline-flex rounded-full border border-gray-200/70 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 backdrop-blur px-1 py-1 shadow-sm">
+                        <div className="inline-flex rounded-xl border border-gray-200/70 dark:border-gray-800 bg-white/80 dark:bg-gray-900/50 backdrop-blur px-1 py-1 shadow-sm">
                             <button
                                 type="button"
                                 onClick={() => setViewMode('mine')}
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'mine'
+                                className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'mine'
                                     ? 'bg-primary-600 text-white shadow-sm'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
                                     }`}
@@ -374,7 +374,7 @@ export default function DashboardPage() {
                             <button
                                 type="button"
                                 onClick={() => setViewMode('all')}
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'all'
+                                className={`px-4 py-2 text-sm font-medium rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'all'
                                     ? 'bg-primary-600 text-white shadow-sm'
                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
                                     }`}
@@ -385,76 +385,8 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {isAdmin && (
-                    <div className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
-                            <div className="flex items-start gap-3">
-                                <div className="rounded-lg bg-sky-100 dark:bg-sky-900/40 p-2 shrink-0">
-                                    <EnvelopeOpenIcon className="h-5 w-5 text-sky-700 dark:text-sky-300" />
-                                </div>
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    Task review recipients
-                                </h2>
-                            </div>
-                        </div>
-                        {taskReviewAdminsLoading ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
-                        ) : activeAdmins.length === 0 ? (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                No active administrator accounts found.
-                            </p>
-                        ) : (
-                            <>
-                                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-                                    {activeAdmins.map((a: { id: string; name: string; email?: string }) => (
-                                        <li key={a.id}>
-                                            <label className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                                    checked={reviewerSelection.has(a.id)}
-                                                    onChange={() => toggleTaskReviewer(a.id)}
-                                                />
-                                                <span className="text-sm text-gray-900 dark:text-white min-w-0">
-                                                    <span className="font-medium">{a.name}</span>
-                                                    {a.email ? (
-                                                        <span
-                                                            className="block text-xs text-gray-500 dark:text-gray-400 truncate"
-                                                            title={a.email}
-                                                        >
-                                                            {a.email}
-                                                        </span>
-                                                    ) : null}
-                                                </span>
-                                            </label>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <div className="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={handleSaveTaskReviewers}
-                                        disabled={savingTaskReviewers}
-                                        className="btn-primary text-sm py-2"
-                                    >
-                                        {savingTaskReviewers ? 'Saving…' : 'Save recipients'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleClearTaskReviewers}
-                                        disabled={savingTaskReviewers}
-                                        className="btn-secondary text-sm py-2"
-                                    >
-                                        Notify all admins (clear list)
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
                 {hasNoAssignedItems && (
-                    <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
+                    <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
                         No tasks or projects are currently assigned to you. Switch to <span className="font-semibold">Team view</span> to view everything.
                     </div>
                 )}
@@ -508,11 +440,91 @@ export default function DashboardPage() {
                 </div>
 
                 {isAdmin && (
+                    <div className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                        <div className="mb-4 rounded-xl border border-primary-100/80 bg-primary-50/60 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2 shrink-0">
+                                    <EnvelopeOpenIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Task review recipients
+                                </h2>
+                            </div>
+                        </div>
+                        </div>
+                        {taskReviewAdminsLoading ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+                        ) : activeAdmins.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                No active administrator accounts found.
+                            </p>
+                        ) : (
+                            <>
+                                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                                    {activeAdmins.map((a: { id: string; name: string; email?: string }) => (
+                                        <li key={a.id}>
+                                            <label className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                    checked={reviewerSelection.has(a.id)}
+                                                    onChange={() => toggleTaskReviewer(a.id)}
+                                                />
+                                                <span className="text-sm text-gray-900 dark:text-white min-w-0">
+                                                    <span className="font-medium">{a.name}</span>
+                                                    {a.email ? (
+                                                        <span
+                                                            className="block text-xs text-gray-500 dark:text-gray-400 truncate"
+                                                            title={a.email}
+                                                        >
+                                                            {a.email}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </label>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="flex flex-wrap gap-2">
+                                    {(() => {
+                                        const isNotifyAllAdminsMode = reviewerSelection.size === 0;
+                                        const primaryBtnClass = 'text-sm py-2';
+                                        const activeClass = 'btn-primary';
+                                        const inactiveClass = 'btn-secondary';
+                                        return (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSaveTaskReviewers}
+                                                    disabled={savingTaskReviewers}
+                                                    className={`${isNotifyAllAdminsMode ? inactiveClass : activeClass} ${primaryBtnClass}`}
+                                                >
+                                                    {savingTaskReviewers ? 'Saving…' : 'Save recipients'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearTaskReviewers}
+                                                    disabled={savingTaskReviewers}
+                                                    className={`${isNotifyAllAdminsMode ? activeClass : inactiveClass} ${primaryBtnClass}`}
+                                                >
+                                                    Notify all admins (clear list)
+                                                </button>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {isAdmin && (
                     <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 bg-violet-50/80 dark:bg-violet-950/30 rounded-lg p-3 border border-violet-100/80 dark:border-violet-900/40">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 bg-primary-50/60 dark:bg-primary-950/20 rounded-xl p-3 border border-primary-100/80 dark:border-primary-900/40">
                             <div className="flex items-center gap-2">
-                                <div className="rounded-lg bg-violet-100 dark:bg-violet-900/40 p-2">
-                                    <ClipboardDocumentCheckIcon className="h-5 w-5 text-violet-700 dark:text-violet-300" />
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                                    <ClipboardDocumentCheckIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
                                 </div>
                                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                                     Tasks in review
@@ -615,10 +627,15 @@ export default function DashboardPage() {
 
                 {isAdmin && (
                     <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm mb-8 p-5">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg p-3">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Work in progress
-                            </h2>
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-4 bg-primary-50/60 dark:bg-primary-950/20 rounded-xl p-3 border border-primary-100/80 dark:border-primary-900/40">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                                    <ClockIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Work in progress
+                                </h2>
+                            </div>
                             <p className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
                                 {adminInProgressByUser.length === 0 ? (
                                     'No tasks in this status right now'
@@ -741,9 +758,14 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Recent Projects */}
                     <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                            {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
-                        </h2>
+                        <div className="mb-4 flex items-center gap-2">
+                            <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                                <FolderIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                            </div>
+                            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                                {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
+                            </h2>
+                        </div>
                         <div className="space-y-3">
                             {recentProjects.length > 0 ? (
                                 recentProjects.map((project: any) => (
@@ -780,9 +802,14 @@ export default function DashboardPage() {
 
                     {/* Recent Tasks */}
                     <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-                            {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
-                        </h2>
+                        <div className="mb-4 flex items-center gap-2">
+                            <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                                <ClipboardDocumentCheckIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                            </div>
+                            <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+                                {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
+                            </h2>
+                        </div>
                         <div className="space-y-3">
                             {recentTasks.length > 0 ? (
                                 recentTasks.map((task: any) => (

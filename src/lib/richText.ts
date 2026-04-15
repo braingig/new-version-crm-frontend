@@ -11,6 +11,8 @@ export function isProbablyRichTextHtml(s: string | null | undefined): boolean {
 /** True when editor HTML has no visible text (empty paragraphs only). */
 export function isEmptyRichTextHtml(html: string): boolean {
     if (!html || !html.trim()) return true;
+    // Mention-only content must be treated as non-empty.
+    if (/data-type=["']mention["']/i.test(html)) return false;
     const text = html
         .replace(/<[^>]*>/g, ' ')
         .replace(/&nbsp;/gi, ' ')

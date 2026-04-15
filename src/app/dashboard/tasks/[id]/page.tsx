@@ -790,9 +790,10 @@ export default function TaskDetailsPage() {
                                 <PencilIcon className="h-5 w-5 text-primary-600" />
                                 Note
                             </h2>
-                            <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-                                <MentionFormattedText text={task.note} />
-                            </p>
+                            <RichTextContent
+                                htmlOrText={task.note}
+                                className="text-gray-600 dark:text-gray-300"
+                            />
                         </div>
                     )}
 
