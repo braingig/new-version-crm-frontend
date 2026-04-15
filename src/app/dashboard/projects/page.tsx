@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import AddProjectModal from '@/components/AddProjectModal';
 import { RichTextContent } from '@/components/RichTextContent';
+import { htmlToPlainText } from '@/lib/richText';
 
 export default function ProjectsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,6 +73,11 @@ export default function ProjectsPage() {
             day: 'numeric'
         });
     };
+
+    const descriptionPreview = selectedProject?.description
+        ? htmlToPlainText(selectedProject.description)
+        : '';
+    const isDescriptionLong = descriptionPreview.length > 280;
 
     if (loading) {
         return (
@@ -163,7 +169,7 @@ export default function ProjectsPage() {
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-4">
                     <div className="card overflow-hidden">
                         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Projects</h3>
@@ -210,10 +216,24 @@ export default function ProjectsPage() {
                                                 {selectedProject.status}
                                             </span>
                                         </div>
-                                        <RichTextContent
-                                            htmlOrText={selectedProject.description}
-                                            className="mt-3 text-sm text-gray-600 dark:text-gray-400"
-                                        />
+                                        <div className="mt-3">
+                                            {isDescriptionLong ? (
+                                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                                    {descriptionPreview.slice(0, 280).trim()}...
+                                                    <Link
+                                                        href={`/dashboard/projects/${selectedProject.id}`}
+                                                        className="ml-1 font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                                    >
+                                                        See more
+                                                    </Link>
+                                                </p>
+                                            ) : (
+                                                <RichTextContent
+                                                    htmlOrText={selectedProject.description}
+                                                    className="text-sm text-gray-600 dark:text-gray-400"
+                                                />
+                                            )}
+                                        </div>
                                     </div>
                                     <Link
                                         href={`/dashboard/projects/${selectedProject.id}`}
