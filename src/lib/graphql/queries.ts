@@ -868,3 +868,24 @@ export const SET_USER_WORK_SCHEDULE = gql`
     }
   }
 `;
+
+/** Admins configured to receive “task ready for review” alerts. Empty = all active admins. */
+export const GET_TASK_REVIEW_ADMINS = gql`
+  query GetTaskReviewAdmins {
+    taskReviewAdmins {
+      id
+      name
+      email
+    }
+  }
+`;
+
+export const SET_TASK_REVIEW_ADMINS = gql`
+  mutation SetTaskReviewAdmins($userIds: [String!]!) {
+    setTaskReviewAdmins(userIds: $userIds) {
+      id
+      name
+      email
+    }
+  }
+`;

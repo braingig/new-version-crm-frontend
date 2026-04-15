@@ -2,15 +2,23 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@apollo/client';
-import { GET_PROJECTS, GET_TASKS, GET_USERS } from '@/lib/graphql/queries';
+import { useQuery, useMutation } from '@apollo/client';
+import {
+    GET_PROJECTS,
+    GET_TASKS,
+    GET_USERS,
+    GET_TASK_REVIEW_ADMINS,
+    SET_TASK_REVIEW_ADMINS,
+} from '@/lib/graphql/queries';
 import { useAuthStore } from '@/lib/store';
+import { useToast } from '@/components/ToastProvider';
 import {
     UserGroupIcon,
     FolderIcon,
     ClockIcon,
     CurrencyDollarIcon,
     ClipboardDocumentCheckIcon,
+    EnvelopeOpenIcon,
 } from '@heroicons/react/24/outline';
 
 type StatChangeType = 'positive' | 'negative' | 'neutral';
@@ -86,11 +94,13 @@ function countOpenTasks(tasks: any[]): number {
 }
 
 export default function DashboardPage() {
+    const { showToast } = useToast();
     const user = useAuthStore((state) => state.user);
     const role = user?.role;
     const userId = user?.id;
     const isAdmin = role?.toUpperCase() === 'ADMIN';
     const [viewMode, setViewMode] = useState<DashboardViewMode>('mine');
+    const [reviewerSelection, setReviewerSelection] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         try {
@@ -122,6 +132,73 @@ export default function DashboardPage() {
         variables: { filters: { status: 'REVIEW' } },
         skip: !isAdmin,
     });
+
+    const { data: adminUsersForReviewData } = useQuery(GET_USERS, {
+        variables: { filters: { role: 'ADMIN' } },
+        skip: !isAdmin,
+    });
+
+    const { data: taskReviewAdminsData, loading: taskReviewAdminsLoading } = useQuery(
+        GET_TASK_REVIEW_ADMINS,
+        { skip: !isAdmin },
+    );
+
+    const [setTaskReviewAdminsMutation, { loading: savingTaskReviewers }] = useMutation(
+        SET_TASK_REVIEW_ADMINS,
+        { refetchQueries: [{ query: GET_TASK_REVIEW_ADMINS }] },
+    );
+
+    useEffect(() => {
+        if (!isAdmin || taskReviewAdminsLoading) return;
+        const list = taskReviewAdminsData?.taskReviewAdmins ?? [];
+        setReviewerSelection(new Set(list.map((a: { id: string }) => a.id)));
+    }, [isAdmin, taskReviewAdminsLoading, taskReviewAdminsData]);
+
+    const activeAdmins = useMemo(() => {
+        return (adminUsersForReviewData?.users ?? []).filter(
+            (u: { status?: string }) => u.status === 'ACTIVE',
+        );
+    }, [adminUsersForReviewData?.users]);
+
+    const toggleTaskReviewer = (id: string) => {
+        setReviewerSelection((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleSaveTaskReviewers = async () => {
+        try {
+            await setTaskReviewAdminsMutation({
+                variables: { userIds: Array.from(reviewerSelection) },
+            });
+            showToast({
+                variant: 'success',
+                message: 'Task review notification recipients updated.',
+            });
+        } catch (e: unknown) {
+            const msg =
+                e instanceof Error ? e.message : 'Could not save review notification settings.';
+            showToast({ variant: 'error', message: msg });
+        }
+    };
+
+    const handleClearTaskReviewers = async () => {
+        try {
+            await setTaskReviewAdminsMutation({ variables: { userIds: [] } });
+            setReviewerSelection(new Set());
+            showToast({
+                variant: 'success',
+                message: 'All active admins will now receive review notifications.',
+            });
+        } catch (e: unknown) {
+            const msg =
+                e instanceof Error ? e.message : 'Could not save review notification settings.';
+            showToast({ variant: 'error', message: msg });
+        }
+    };
 
     const allProjects = projectsData?.projects ?? [];
     const allTasks = tasksData?.tasks ?? [];
@@ -288,8 +365,8 @@ export default function DashboardPage() {
                                 type="button"
                                 onClick={() => setViewMode('mine')}
                                 className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'mine'
-                                        ? 'bg-primary-600 text-white shadow-sm'
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                                    ? 'bg-primary-600 text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
                                     }`}
                             >
                                 Assigned to me
@@ -298,8 +375,8 @@ export default function DashboardPage() {
                                 type="button"
                                 onClick={() => setViewMode('all')}
                                 className={`px-4 py-2 text-sm font-medium rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-950 ${viewMode === 'all'
-                                        ? 'bg-primary-600 text-white shadow-sm'
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                                    ? 'bg-primary-600 text-white shadow-sm'
+                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
                                     }`}
                             >
                                 Team view
@@ -307,6 +384,74 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
+
+                {isAdmin && (
+                    <div className="mb-8 rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-4">
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-lg bg-sky-100 dark:bg-sky-900/40 p-2 shrink-0">
+                                    <EnvelopeOpenIcon className="h-5 w-5 text-sky-700 dark:text-sky-300" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Task review recipients
+                                </h2>
+                            </div>
+                        </div>
+                        {taskReviewAdminsLoading ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+                        ) : activeAdmins.length === 0 ? (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                No active administrator accounts found.
+                            </p>
+                        ) : (
+                            <>
+                                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                                    {activeAdmins.map((a: { id: string; name: string; email?: string }) => (
+                                        <li key={a.id}>
+                                            <label className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                    checked={reviewerSelection.has(a.id)}
+                                                    onChange={() => toggleTaskReviewer(a.id)}
+                                                />
+                                                <span className="text-sm text-gray-900 dark:text-white min-w-0">
+                                                    <span className="font-medium">{a.name}</span>
+                                                    {a.email ? (
+                                                        <span
+                                                            className="block text-xs text-gray-500 dark:text-gray-400 truncate"
+                                                            title={a.email}
+                                                        >
+                                                            {a.email}
+                                                        </span>
+                                                    ) : null}
+                                                </span>
+                                            </label>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div className="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveTaskReviewers}
+                                        disabled={savingTaskReviewers}
+                                        className="btn-primary text-sm py-2"
+                                    >
+                                        {savingTaskReviewers ? 'Saving…' : 'Save recipients'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleClearTaskReviewers}
+                                        disabled={savingTaskReviewers}
+                                        className="btn-secondary text-sm py-2"
+                                    >
+                                        Notify all admins (clear list)
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {hasNoAssignedItems && (
                     <div className="mb-8 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200">
@@ -345,10 +490,10 @@ export default function DashboardPage() {
                                 <div className="mt-4">
                                     <div
                                         className={`inline-flex items-baseline rounded-full px-2.5 py-0.5 text-sm font-medium ${stat.changeType === 'positive'
-                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                                : stat.changeType === 'negative'
-                                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                                                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                            : stat.changeType === 'negative'
+                                                ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                                             }`}
                                     >
                                         {stat.change}
