@@ -76,6 +76,30 @@ export default function Header() {
     const notifications: Notification[] = notificationsData?.notifications ?? [];
     const unreadCount = unreadData?.notificationUnreadCount ?? 0;
     const hasUnread = unreadCount > 0;
+    const getNotificationHref = (link?: string) => {
+        if (!link) return null;
+        const trimmed = link.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            return trimmed;
+        }
+        return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    };
+
+    const handleNotificationClick = async (notification: Notification) => {
+        const href = getNotificationHref(notification.link);
+        if (!notification.isRead) {
+            try {
+                await markAsRead({ variables: { id: notification.id } });
+            } catch (err) {
+                console.error('Failed to mark notification as read:', err);
+            }
+        }
+        setDropdownOpen(false);
+        if (href) {
+            router.push(href);
+        }
+    };
 
     return (
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
@@ -121,10 +145,25 @@ export default function Header() {
                                         </p>
                                     ) : (
                                         <ul className="py-1">
-                                            {notifications.map((n) => (
+                                            {notifications.map((n) => {
+                                                const hasDestination = Boolean(getNotificationHref(n.link));
+                                                return (
                                                 <li key={n.id}>
                                                     <div
-                                                        className={`px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex gap-2 ${!n.isRead ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''}`}
+                                                        className={`px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex gap-2 ${!n.isRead ? 'bg-primary-50/50 dark:bg-primary-900/10' : ''} ${hasDestination ? 'cursor-pointer' : ''}`}
+                                                        role={hasDestination ? 'button' : undefined}
+                                                        tabIndex={hasDestination ? 0 : -1}
+                                                        onClick={() => {
+                                                            if (!hasDestination) return;
+                                                            handleNotificationClick(n);
+                                                        }}
+                                                        onKeyDown={(e) => {
+                                                            if (!hasDestination) return;
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                handleNotificationClick(n);
+                                                            }
+                                                        }}
                                                     >
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -140,7 +179,10 @@ export default function Header() {
                                                         {!n.isRead && (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => markAsRead({ variables: { id: n.id } })}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    markAsRead({ variables: { id: n.id } });
+                                                                }}
                                                                 className="flex-shrink-0 p-1 rounded text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20"
                                                                 title="Mark as read"
                                                             >
@@ -149,7 +191,8 @@ export default function Header() {
                                                         )}
                                                     </div>
                                                 </li>
-                                            ))}
+                                                );
+                                            })}
                                         </ul>
                                     )}
                                 </div>

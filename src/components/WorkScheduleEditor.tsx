@@ -441,7 +441,7 @@ export default function WorkScheduleEditor({
                 </div>
             )}
 
-            <section className="rounded-2xl border border-gray-200/70 bg-gradient-to-b from-white to-gray-50/60 px-5 py-4 shadow-sm dark:border-gray-800 dark:from-gray-950 dark:to-gray-900/40">
+            <section className="rounded-2xl border border-gray-200/80 bg-white px-5 py-4 shadow-sm dark:border-gray-800 dark:bg-gray-950/50">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
@@ -453,12 +453,12 @@ export default function WorkScheduleEditor({
                     </div>
                     <div className="flex items-center gap-2">
                         {weeklySummary.nextWindowToday ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 dark:bg-primary-950/40 dark:text-primary-200">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-200/60 bg-primary-50/70 px-3 py-1 text-xs font-medium text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/30 dark:text-primary-200">
                                 <ClockIcon className="h-3.5 w-3.5" />
                                 Today: {weeklySummary.nextWindowToday}
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 <ClockIcon className="h-3.5 w-3.5" />
                                 {weeklySummary.isWeekendToday ? 'Today is weekend' : 'No blocks today'}
                             </span>
@@ -467,12 +467,12 @@ export default function WorkScheduleEditor({
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl bg-white/70 p-4 ring-1 ring-gray-200/70 dark:bg-gray-900/30 dark:ring-gray-800">
+                    <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-950/40">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                 Weekend
                             </p>
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 <CalendarDaysIcon className="h-4 w-4" />
                             </span>
                         </div>
@@ -481,12 +481,12 @@ export default function WorkScheduleEditor({
                         </p>
                     </div>
 
-                    <div className="rounded-xl bg-white/70 p-4 ring-1 ring-gray-200/70 dark:bg-gray-900/30 dark:ring-gray-800">
+                    <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-950/40">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                             Weekly availability
                             </p>
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 <ClockIcon className="h-4 w-4" />
                             </span>
                         </div>
@@ -498,12 +498,12 @@ export default function WorkScheduleEditor({
                         </p>
                     </div>
 
-                    <div className="rounded-xl bg-white/70 p-4 ring-1 ring-gray-200/70 dark:bg-gray-900/30 dark:ring-gray-800">
+                    <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:border-gray-800 dark:bg-gray-950/40">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                 Blocks
                             </p>
-                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 <Squares2X2Icon className="h-4 w-4" />
                             </span>
                         </div>

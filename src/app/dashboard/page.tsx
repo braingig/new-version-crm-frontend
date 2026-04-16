@@ -101,6 +101,7 @@ export default function DashboardPage() {
     const isAdmin = role?.toUpperCase() === 'ADMIN';
     const [viewMode, setViewMode] = useState<DashboardViewMode>('mine');
     const [reviewerSelection, setReviewerSelection] = useState<Set<string>>(new Set());
+    const [reviewRecipientMode, setReviewRecipientMode] = useState<'all' | 'selected'>('all');
 
     useEffect(() => {
         try {
@@ -152,6 +153,7 @@ export default function DashboardPage() {
         if (!isAdmin || taskReviewAdminsLoading) return;
         const list = taskReviewAdminsData?.taskReviewAdmins ?? [];
         setReviewerSelection(new Set(list.map((a: { id: string }) => a.id)));
+        setReviewRecipientMode(list.length === 0 ? 'all' : 'selected');
     }, [isAdmin, taskReviewAdminsLoading, taskReviewAdminsData]);
 
     const activeAdmins = useMemo(() => {
@@ -171,27 +173,16 @@ export default function DashboardPage() {
 
     const handleSaveTaskReviewers = async () => {
         try {
+            const userIds =
+                reviewRecipientMode === 'all'
+                    ? []
+                    : Array.from(reviewerSelection);
             await setTaskReviewAdminsMutation({
-                variables: { userIds: Array.from(reviewerSelection) },
+                variables: { userIds },
             });
             showToast({
                 variant: 'success',
                 message: 'Task review notification recipients updated.',
-            });
-        } catch (e: unknown) {
-            const msg =
-                e instanceof Error ? e.message : 'Could not save review notification settings.';
-            showToast({ variant: 'error', message: msg });
-        }
-    };
-
-    const handleClearTaskReviewers = async () => {
-        try {
-            await setTaskReviewAdminsMutation({ variables: { userIds: [] } });
-            setReviewerSelection(new Set());
-            showToast({
-                variant: 'success',
-                message: 'All active admins will now receive review notifications.',
             });
         } catch (e: unknown) {
             const msg =
@@ -461,7 +452,34 @@ export default function DashboardPage() {
                             </p>
                         ) : (
                             <>
-                                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
+                                <div className="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-gray-50/60 dark:bg-gray-800/30">
+                                    <p className="text-xs font-medium uppercase tracking-wide text-gray-600 dark:text-gray-400 mb-2">
+                                        Notification mode
+                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
+                                            <input
+                                                type="radio"
+                                                name="reviewRecipientMode"
+                                                className="border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                checked={reviewRecipientMode === 'all'}
+                                                onChange={() => setReviewRecipientMode('all')}
+                                            />
+                                            <span>All active admins</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-100">
+                                            <input
+                                                type="radio"
+                                                name="reviewRecipientMode"
+                                                className="border-gray-300 text-primary-600 focus:ring-primary-500"
+                                                checked={reviewRecipientMode === 'selected'}
+                                                onChange={() => setReviewRecipientMode('selected')}
+                                            />
+                                            <span>Only selected admins</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <ul className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4 ${reviewRecipientMode === 'all' ? 'opacity-60' : ''}`}>
                                     {activeAdmins.map((a: { id: string; name: string; email?: string }) => (
                                         <li key={a.id}>
                                             <label className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -470,6 +488,7 @@ export default function DashboardPage() {
                                                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                                     checked={reviewerSelection.has(a.id)}
                                                     onChange={() => toggleTaskReviewer(a.id)}
+                                                    disabled={reviewRecipientMode === 'all'}
                                                 />
                                                 <span className="text-sm text-gray-900 dark:text-white min-w-0">
                                                     <span className="font-medium">{a.name}</span>
@@ -486,33 +505,20 @@ export default function DashboardPage() {
                                         </li>
                                     ))}
                                 </ul>
-                                <div className="flex flex-wrap gap-2">
-                                    {(() => {
-                                        const isNotifyAllAdminsMode = reviewerSelection.size === 0;
-                                        const primaryBtnClass = 'text-sm py-2';
-                                        const activeClass = 'btn-primary';
-                                        const inactiveClass = 'btn-secondary';
-                                        return (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSaveTaskReviewers}
-                                                    disabled={savingTaskReviewers}
-                                                    className={`${isNotifyAllAdminsMode ? inactiveClass : activeClass} ${primaryBtnClass}`}
-                                                >
-                                                    {savingTaskReviewers ? 'Saving…' : 'Save recipients'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleClearTaskReviewers}
-                                                    disabled={savingTaskReviewers}
-                                                    className={`${isNotifyAllAdminsMode ? activeClass : inactiveClass} ${primaryBtnClass}`}
-                                                >
-                                                    Notify all admins (clear list)
-                                                </button>
-                                            </>
-                                        );
-                                    })()}
+                                <div className="flex flex-wrap gap-2 items-center">
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveTaskReviewers}
+                                        disabled={savingTaskReviewers || (reviewRecipientMode === 'selected' && reviewerSelection.size === 0)}
+                                        className="btn-primary text-sm py-2 disabled:opacity-60"
+                                    >
+                                        {savingTaskReviewers ? 'Saving…' : 'Save settings'}
+                                    </button>
+                                    {reviewRecipientMode === 'selected' && reviewerSelection.size === 0 && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                                            Select at least one admin, or switch to “All active admins”.
+                                        </p>
+                                    )}
                                 </div>
                             </>
                         )}
@@ -755,37 +761,42 @@ export default function DashboardPage() {
                 )}
 
                 {/* Grid Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
                     {/* Recent Projects */}
-                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                    <div className="xl:col-span-5 rounded-3xl border border-gray-200/70 dark:border-gray-800 bg-white/95 dark:bg-gray-900/50 backdrop-blur shadow-[0_10px_35px_rgba(15,23,42,0.08)] p-5">
+                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-primary-100/70 dark:border-primary-900/40 bg-gradient-to-r from-primary-50/90 to-white dark:from-primary-950/40 dark:to-gray-900/10 px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
                                 <FolderIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
                             </div>
                             <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                                 {viewMode === 'mine' ? 'My Projects' : 'Recent Projects'}
                             </h2>
+                            </div>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {recentProjects.length} items
+                            </span>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             {recentProjects.length > 0 ? (
                                 recentProjects.map((project: any) => (
                                     <Link
                                         key={project.id}
                                         href={`/dashboard/projects/${project.id}`}
-                                        className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
+                                        className="group flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-gray-200/70 dark:border-gray-800/90 bg-white dark:bg-gray-900/30 hover:border-primary-200 dark:hover:border-primary-800/70 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-gray-900 dark:text-white">
+                                            <h3 className="font-medium text-gray-900 dark:text-white truncate group-hover:text-primary-700 dark:group-hover:text-primary-300 transition-colors">
                                                 {project.name}
                                             </h3>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                                                 {project.clientName || 'Internal'}
                                             </p>
                                         </div>
                                         <span
-                                            className={`flex-shrink-0 px-2 py-1 text-xs rounded-full ${project.status === 'ACTIVE'
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                            className={`inline-flex items-center shrink-0 px-2.5 py-1 text-[11px] font-semibold rounded-full ${project.status === 'ACTIVE'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                                                 }`}
                                         >
                                             {project.status}
@@ -793,7 +804,7 @@ export default function DashboardPage() {
                                     </Link>
                                 ))
                             ) : (
-                                <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
                                     {viewMode === 'mine' ? 'No projects assigned to you' : 'No projects yet'}
                                 </p>
                             )}
@@ -801,39 +812,44 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Recent Tasks */}
-                    <div className="rounded-2xl border border-gray-200/70 dark:border-gray-800 bg-white/90 dark:bg-gray-900/40 backdrop-blur shadow-sm p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
+                    <div className="xl:col-span-7 rounded-3xl border border-gray-200/70 dark:border-gray-800 bg-white/95 dark:bg-gray-900/50 backdrop-blur shadow-[0_10px_35px_rgba(15,23,42,0.08)] p-5">
+                        <div className="mb-4 flex items-center justify-between rounded-2xl border border-primary-100/70 dark:border-primary-900/40 bg-gradient-to-r from-primary-50/90 to-white dark:from-primary-950/40 dark:to-gray-900/10 px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                                <div className="rounded-xl bg-primary-100 dark:bg-primary-900/20 p-2">
                                 <ClipboardDocumentCheckIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
                             </div>
                             <h2 className="text-base font-semibold text-gray-900 dark:text-white">
                                 {viewMode === 'mine' ? 'My Tasks' : 'Recent Tasks'}
                             </h2>
+                            </div>
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {recentTasks.length} items
+                            </span>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             {recentTasks.length > 0 ? (
                                 recentTasks.map((task: any) => (
                                     <Link
                                         key={task.id}
                                         href={`/dashboard/tasks/${task.id}`}
-                                        className="flex items-center justify-between p-3 rounded-xl border border-gray-200/60 dark:border-gray-800 bg-white/60 dark:bg-gray-900/20 hover:bg-gray-50 dark:hover:bg-gray-900/40 transition-colors cursor-pointer"
+                                        className="group flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-gray-200/70 dark:border-gray-800/90 bg-white dark:bg-gray-900/30 hover:border-primary-200 dark:hover:border-primary-800/70 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                     >
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-medium text-gray-900 dark:text-white">
+                                            <h3 className="font-medium text-gray-900 dark:text-white truncate group-hover:text-primary-700 dark:group-hover:text-primary-300 transition-colors">
                                                 {task.title}
                                             </h3>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                Priority: {task.priority}
+                                            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                Priority: {String(task.priority ?? '—').replace(/_/g, ' ')}
                                             </p>
                                         </div>
                                         <span
-                                            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap px-2.5 py-1 text-xs font-medium rounded-full ${task.status === 'COMPLETED'
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                            className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap px-2.5 py-1 text-[11px] font-semibold rounded-full ${task.status === 'COMPLETED'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300'
                                                 : task.status === 'IN_PROGRESS'
-                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/25 dark:text-blue-300'
                                                     : task.status === 'REVIEW'
-                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                                        ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/25 dark:text-violet-300'
+                                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                                                 }`}
                                         >
                                             {task.status.replace(/_/g, ' ')}

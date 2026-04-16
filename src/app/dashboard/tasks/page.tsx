@@ -1001,7 +1001,7 @@ export default function TasksPage() {
     }
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-4">
             <aside className="card overflow-hidden h-fit">
                 <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Projects</h3>
