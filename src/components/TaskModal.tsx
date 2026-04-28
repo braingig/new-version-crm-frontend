@@ -10,7 +10,6 @@ import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
 import {
     deleteTaskAttachment,
-    downloadWithAuth,
     openInNewTabWithAuth,
     taskAttachmentDownloadUrl,
     uploadTaskAttachment,
@@ -44,6 +43,18 @@ export default function TaskModal({
         return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     });
     const [attachments, setAttachments] = useState<any[]>([]);
+    const removeAttachmentLinkFromDescription = (attachmentId: string) => {
+        setFormData((prev) => ({
+            ...prev,
+            description: (prev.description || '').replace(
+                new RegExp(
+                    `<p>\\s*<a[^>]*data-attachment-id=["']${attachmentId}["'][^>]*>[\\s\\S]*?<\\/a>\\s*<\\/p>`,
+                    'gi',
+                ),
+                '',
+            ),
+        }));
+    };
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -151,6 +162,7 @@ export default function TaskModal({
         try {
             await deleteTaskAttachment(id);
             setAttachments((prev) => prev.filter((a) => a.id !== id));
+            removeAttachmentLinkFromDescription(id);
         } catch (err: any) {
             alert(err?.message || 'Failed to delete attachment');
         }
@@ -302,20 +314,6 @@ export default function TaskModal({
                                             >
                                                 {a.originalName}
                                             </a>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    downloadWithAuth({
-                                                        url: taskAttachmentDownloadUrl(a.id),
-                                                        filename: a.originalName,
-                                                    }).catch(() => {
-                                                        window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
-                                                    })
-                                                }
-                                                className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-                                            >
-                                                Download
-                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteAttachment(a.id)}

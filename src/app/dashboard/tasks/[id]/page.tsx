@@ -49,7 +49,13 @@ import { RichTextContent } from '@/components/RichTextContent';
 import { MentionTextarea } from '@/components/MentionTextarea';
 import { useAuthStore } from '@/lib/store';
 import { useToast } from '@/components/ToastProvider';
-import { deleteTaskAttachment, downloadWithAuth, openInNewTabWithAuth, taskAttachmentDownloadUrl } from '@/lib/attachments';
+import {
+    deleteTaskAttachment,
+    downloadWithAuth,
+    getPreviewObjectUrlWithAuth,
+    openInNewTabWithAuth,
+    taskAttachmentDownloadUrl,
+} from '@/lib/attachments';
 
 const priorityColors: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -150,6 +156,7 @@ export default function TaskDetailsPage() {
 
     const isAdmin = currentUser?.role === 'ADMIN';
     const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+    const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({});
 
     const handleRemoveAttachment = async (id: string) => {
         if (!isAdmin) return;
@@ -165,6 +172,44 @@ export default function TaskDetailsPage() {
             setDeletingAttachmentId(null);
         }
     };
+
+    useEffect(() => {
+        const attachments: any[] = task?.attachments ?? [];
+        let cancelled = false;
+        const previous = imagePreviewUrls;
+
+        const load = async () => {
+            const imageItems = attachments.filter((a) =>
+                String(a?.mimeType || '').toLowerCase().startsWith('image/'),
+            );
+            const next: Record<string, string> = {};
+            for (const a of imageItems) {
+                try {
+                    const objectUrl = await getPreviewObjectUrlWithAuth(
+                        taskAttachmentDownloadUrl(a.id),
+                    );
+                    next[a.id] = objectUrl;
+                } catch {
+                    // Skip preview for this item; keep filename actions available.
+                }
+            }
+            if (cancelled) {
+                Object.values(next).forEach((u) => URL.revokeObjectURL(u));
+                return;
+            }
+            setImagePreviewUrls(next);
+            Object.values(previous).forEach((u) => {
+                if (!Object.values(next).includes(u)) URL.revokeObjectURL(u);
+            });
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+            Object.values(previous).forEach((u) => URL.revokeObjectURL(u));
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [task?.id, task?.attachments]);
 
     const handleStatusChange = (newStatus: string) => {
         setStatusDropdownOpen(false);
@@ -813,19 +858,52 @@ export default function TaskDetailsPage() {
                                         key={a.id}
                                         className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/50"
                                     >
-                                        <a
-                                            href={taskAttachmentDownloadUrl(a.id)}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                openInNewTabWithAuth({ url: taskAttachmentDownloadUrl(a.id) }).catch(() => {
-                                                    window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
-                                                });
-                                            }}
-                                            className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
-                                            title={a.originalName}
-                                        >
-                                            {a.originalName}
-                                        </a>
+                                        <div className="min-w-0 flex flex-1 items-center gap-3">
+                                            {String(a?.mimeType || '').toLowerCase().startsWith('image/') &&
+                                                imagePreviewUrls[a.id] && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openInNewTabWithAuth({
+                                                                url: taskAttachmentDownloadUrl(a.id),
+                                                            }).catch(() => {
+                                                                window.open(
+                                                                    taskAttachmentDownloadUrl(a.id),
+                                                                    '_blank',
+                                                                    'noopener,noreferrer',
+                                                                );
+                                                            })
+                                                        }
+                                                        className="shrink-0 overflow-hidden rounded border border-gray-200 dark:border-gray-700"
+                                                        title="Open image"
+                                                    >
+                                                        <img
+                                                            src={imagePreviewUrls[a.id]}
+                                                            alt={a.originalName}
+                                                            className="h-10 w-10 object-cover"
+                                                        />
+                                                    </button>
+                                                )}
+                                            <a
+                                                href={taskAttachmentDownloadUrl(a.id)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    openInNewTabWithAuth({
+                                                        url: taskAttachmentDownloadUrl(a.id),
+                                                    }).catch(() => {
+                                                        window.open(
+                                                            taskAttachmentDownloadUrl(a.id),
+                                                            '_blank',
+                                                            'noopener,noreferrer',
+                                                        );
+                                                    });
+                                                }}
+                                                className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                                title={a.originalName}
+                                            >
+                                                {a.originalName}
+                                            </a>
+                                        </div>
                                         <button
                                             type="button"
                                             onClick={() =>

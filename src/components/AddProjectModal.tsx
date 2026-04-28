@@ -10,10 +10,10 @@ import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
 import type { MentionUser } from '@/components/MentionTextarea';
 import {
-  downloadWithAuth,
   finalizeProjectDraft,
   openInNewTabWithAuth,
   projectAttachmentDownloadUrl,
+  deleteProjectAttachment,
   uploadProjectAttachment,
 } from '@/lib/attachments';
 
@@ -45,6 +45,18 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   });
   const [attachments, setAttachments] = useState<any[]>([]);
+  const removeAttachmentLinkFromDescription = (attachmentId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      description: (prev.description || '').replace(
+        new RegExp(
+          `<p>\\s*<a[^>]*data-attachment-id=["']${attachmentId}["'][^>]*>[\\s\\S]*?<\\/a>\\s*<\\/p>`,
+          'gi',
+        ),
+        '',
+      ),
+    }));
+  };
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -85,6 +97,17 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
       showToast({ variant: 'error', message: err?.message || 'Failed to upload attachment.' });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (id: string) => {
+    if (!window.confirm('Remove this attachment?')) return;
+    try {
+      await deleteProjectAttachment(id);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      removeAttachmentLinkFromDescription(id);
+    } catch (err: any) {
+      showToast({ variant: 'error', message: err?.message || 'Failed to delete attachment.' });
     }
   };
 
@@ -339,19 +362,11 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
                         </a>
                         <button
                           type="button"
-                          onClick={() =>
-                            downloadWithAuth({
-                              url: projectAttachmentDownloadUrl(a.id),
-                              filename: a.originalName,
-                            }).catch(() => {
-                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
-                            })
-                          }
-                          className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                          onClick={() => handleDeleteAttachment(a.id)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                         >
-                          Download
+                          Remove
                         </button>
-                        <span className="text-[11px] text-gray-500 dark:text-gray-400">Draft</span>
                       </li>
                     ))}
                   </ul>

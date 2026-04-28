@@ -11,7 +11,6 @@ import { isEmptyRichTextHtml } from '@/lib/richText';
 import type { MentionUser } from '@/components/MentionTextarea';
 import {
   deleteProjectAttachment,
-  downloadWithAuth,
   openInNewTabWithAuth,
   projectAttachmentDownloadUrl,
   uploadProjectAttachment,
@@ -42,6 +41,18 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const removeAttachmentLinkFromDescription = (attachmentId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      description: (prev.description || '').replace(
+        new RegExp(
+          `<p>\\s*<a[^>]*data-attachment-id=["']${attachmentId}["'][^>]*>[\\s\\S]*?<\\/a>\\s*<\\/p>`,
+          'gi',
+        ),
+        '',
+      ),
+    }));
+  };
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -107,6 +118,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
     try {
       await deleteProjectAttachment(id);
       setAttachments((prev) => prev.filter((a) => a.id !== id));
+      removeAttachmentLinkFromDescription(id);
     } catch (err: any) {
       showToast({ variant: 'error', message: err?.message || 'Failed to delete attachment.' });
     }
@@ -344,20 +356,6 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
                         >
                           {a.originalName}
                         </a>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            downloadWithAuth({
-                              url: projectAttachmentDownloadUrl(a.id),
-                              filename: a.originalName,
-                            }).catch(() => {
-                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
-                            })
-                          }
-                          className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-                        >
-                          Download
-                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteAttachment(a.id)}

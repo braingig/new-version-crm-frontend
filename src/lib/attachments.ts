@@ -86,6 +86,16 @@ export async function openInNewTabWithAuth(params: { url: string }) {
   }
 }
 
+export async function getPreviewObjectUrlWithAuth(url: string): Promise<string> {
+  const res = await authedFetch(url, { method: 'GET' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(text || `Preview fetch failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 export function taskAttachmentDownloadUrl(id: string) {
   return `${getRestBaseUrl()}/api/attachments/tasks/${id}/download`;
 }

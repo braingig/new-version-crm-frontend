@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@apollo/client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, DELETE_PROJECT, GET_USERS } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import {
@@ -20,7 +20,13 @@ import {
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
 import { RichTextContent } from '@/components/RichTextContent';
-import { deleteProjectAttachment, downloadWithAuth, openInNewTabWithAuth, projectAttachmentDownloadUrl } from '@/lib/attachments';
+import {
+    deleteProjectAttachment,
+    downloadWithAuth,
+    getPreviewObjectUrlWithAuth,
+    openInNewTabWithAuth,
+    projectAttachmentDownloadUrl,
+} from '@/lib/attachments';
 
 const statusColors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
@@ -39,6 +45,7 @@ export default function ProjectDetailsPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+    const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({});
 
     const { data, loading, error, refetch } = useQuery(GET_PROJECT, {
         variables: { id: projectId },
@@ -103,6 +110,42 @@ export default function ProjectDetailsPage() {
             setDeletingAttachmentId(null);
         }
     };
+
+    useEffect(() => {
+        const attachments: any[] = project?.attachments ?? [];
+        let cancelled = false;
+        const previous = imagePreviewUrls;
+
+        const load = async () => {
+            const imageItems = attachments.filter((a) =>
+                String(a?.mimeType || '').toLowerCase().startsWith('image/'),
+            );
+            const next: Record<string, string> = {};
+            for (const a of imageItems) {
+                try {
+                    const objectUrl = await getPreviewObjectUrlWithAuth(
+                        projectAttachmentDownloadUrl(a.id),
+                    );
+                    next[a.id] = objectUrl;
+                } catch {}
+            }
+            if (cancelled) {
+                Object.values(next).forEach((u) => URL.revokeObjectURL(u));
+                return;
+            }
+            setImagePreviewUrls(next);
+            Object.values(previous).forEach((u) => {
+                if (!Object.values(next).includes(u)) URL.revokeObjectURL(u);
+            });
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+            Object.values(previous).forEach((u) => URL.revokeObjectURL(u));
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [project?.id, project?.attachments]);
 
     if (!projectId) {
         return (
@@ -213,19 +256,52 @@ export default function ProjectDetailsPage() {
                                         key={a.id}
                                         className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-2"
                                     >
-                                        <a
-                                            href={projectAttachmentDownloadUrl(a.id)}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                openInNewTabWithAuth({ url: projectAttachmentDownloadUrl(a.id) }).catch(() => {
-                                                    window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
-                                                });
-                                            }}
-                                            className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
-                                            title={a.originalName}
-                                        >
-                                            {a.originalName}
-                                        </a>
+                                        <div className="min-w-0 flex flex-1 items-center gap-3">
+                                            {String(a?.mimeType || '').toLowerCase().startsWith('image/') &&
+                                                imagePreviewUrls[a.id] && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            openInNewTabWithAuth({
+                                                                url: projectAttachmentDownloadUrl(a.id),
+                                                            }).catch(() => {
+                                                                window.open(
+                                                                    projectAttachmentDownloadUrl(a.id),
+                                                                    '_blank',
+                                                                    'noopener,noreferrer',
+                                                                );
+                                                            })
+                                                        }
+                                                        className="shrink-0 overflow-hidden rounded border border-gray-200 dark:border-gray-700"
+                                                        title="Open image"
+                                                    >
+                                                        <img
+                                                            src={imagePreviewUrls[a.id]}
+                                                            alt={a.originalName}
+                                                            className="h-10 w-10 object-cover"
+                                                        />
+                                                    </button>
+                                                )}
+                                            <a
+                                                href={projectAttachmentDownloadUrl(a.id)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    openInNewTabWithAuth({
+                                                        url: projectAttachmentDownloadUrl(a.id),
+                                                    }).catch(() => {
+                                                        window.open(
+                                                            projectAttachmentDownloadUrl(a.id),
+                                                            '_blank',
+                                                            'noopener,noreferrer',
+                                                        );
+                                                    });
+                                                }}
+                                                className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                                title={a.originalName}
+                                            >
+                                                {a.originalName}
+                                            </a>
+                                        </div>
                                         <button
                                             type="button"
                                             onClick={() =>
