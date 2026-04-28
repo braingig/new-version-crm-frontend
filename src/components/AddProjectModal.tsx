@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation } from '@apollo/client';
 import { CREATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
@@ -9,6 +9,13 @@ import ModalDropdown from '@/components/ModalDropdown';
 import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
 import type { MentionUser } from '@/components/MentionTextarea';
+import {
+  downloadWithAuth,
+  finalizeProjectDraft,
+  openInNewTabWithAuth,
+  projectAttachmentDownloadUrl,
+  uploadProjectAttachment,
+} from '@/lib/attachments';
 
 interface AddProjectModalProps {
   isOpen: boolean;
@@ -31,6 +38,13 @@ interface FormData {
 
 export default function AddProjectModal({ isOpen, onClose, onProjectAdded, mentionUsers = [] }: AddProjectModalProps) {
   const { showToast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [draftKey] = useState(() => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return (crypto as any).randomUUID();
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  });
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -45,6 +59,35 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
 
   const [createProject, { loading, error }] = useMutation(CREATE_PROJECT);
 
+  const insertAttachmentLink = (name: string, url: string, id: string) => {
+    const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `<p><a href="${url}" data-attachment-id="${id}" target="_blank" rel="noopener noreferrer">📎 ${safeName}</a></p>`;
+    setFormData((prev) => ({
+      ...prev,
+      description: prev.description && !isEmptyRichTextHtml(prev.description)
+        ? `${prev.description}${html}`
+        : html,
+    }));
+  };
+
+  const handlePickFile = () => fileInputRef.current?.click();
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      setUploading(true);
+      const { attachment, url } = await uploadProjectAttachment({ file: f, draftKey });
+      setAttachments((prev) => [attachment, ...prev]);
+      insertAttachmentLink(attachment.originalName, url, attachment.id);
+    } catch (err: any) {
+      showToast({ variant: 'error', message: err?.message || 'Failed to upload attachment.' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isEmptyRichTextHtml(formData.description)) {
@@ -53,7 +96,7 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
     }
     
     try {
-      await createProject({
+      const result = await createProject({
         variables: {
           input: {
             name: formData.name,
@@ -68,6 +111,14 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
           },
         },
       });
+      const newId = result?.data?.createProject?.id as string | undefined;
+      if (newId) {
+        try {
+          await finalizeProjectDraft(draftKey, newId);
+        } catch (e) {
+          console.warn('Failed to finalize project draft attachments', e);
+        }
+      }
 
       // Reset form
       setFormData({
@@ -246,6 +297,66 @@ export default function AddProjectModal({ isOpen, onClose, onProjectAdded, menti
                   </>
                 }
               />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelected}
+                />
+                <button
+                  type="button"
+                  onClick={handlePickFile}
+                  disabled={uploading}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  {uploading ? 'Uploading…' : 'Attach file'}
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  You can attach any file (PDF, image, fig, zip, etc.).
+                </span>
+              </div>
+              {attachments.length > 0 && (
+                <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                  <div className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                    Attachments ({attachments.length})
+                  </div>
+                  <ul className="space-y-1.5">
+                    {attachments.map((a: any) => (
+                      <li key={a.id} className="flex items-center justify-between gap-3">
+                        <a
+                          href={projectAttachmentDownloadUrl(a.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openInNewTabWithAuth({ url: projectAttachmentDownloadUrl(a.id) }).catch(() => {
+                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                            });
+                          }}
+                          className="truncate text-xs font-medium text-primary-700 hover:underline dark:text-primary-300"
+                          title={a.originalName}
+                        >
+                          {a.originalName}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadWithAuth({
+                              url: projectAttachmentDownloadUrl(a.id),
+                              filename: a.originalName,
+                            }).catch(() => {
+                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                            })
+                          }
+                          className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                        >
+                          Download
+                        </button>
+                        <span className="text-[11px] text-gray-500 dark:text-gray-400">Draft</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2">

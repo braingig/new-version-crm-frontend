@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
 import { RichTextContent } from '@/components/RichTextContent';
+import { deleteProjectAttachment, downloadWithAuth, openInNewTabWithAuth, projectAttachmentDownloadUrl } from '@/lib/attachments';
 
 const statusColors: Record<string, string> = {
     ACTIVE: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
@@ -37,6 +38,7 @@ export default function ProjectDetailsPage() {
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
 
     const { data, loading, error, refetch } = useQuery(GET_PROJECT, {
         variables: { id: projectId },
@@ -85,6 +87,20 @@ export default function ProjectDetailsPage() {
             });
         } finally {
             setShowDeleteConfirm(false);
+        }
+    };
+
+    const handleRemoveAttachment = async (id: string) => {
+        if (!window.confirm('Remove this attachment?')) return;
+        try {
+            setDeletingAttachmentId(id);
+            await deleteProjectAttachment(id);
+            await refetch();
+            showToast({ variant: 'success', message: 'Attachment removed.' });
+        } catch (e: any) {
+            showToast({ variant: 'error', message: e?.message || 'Failed to remove attachment.' });
+        } finally {
+            setDeletingAttachmentId(null);
         }
     };
 
@@ -183,6 +199,58 @@ export default function ProjectDetailsPage() {
                                 htmlOrText={project.description}
                                 className="text-gray-700 dark:text-gray-300"
                             />
+                        </div>
+                    )}
+
+                    {project.attachments && project.attachments.length > 0 && (
+                        <div className="card">
+                            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                                Attachments ({project.attachments.length})
+                            </h2>
+                            <ul className="space-y-2">
+                                {project.attachments.map((a: any) => (
+                                    <li
+                                        key={a.id}
+                                        className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-3 py-2"
+                                    >
+                                        <a
+                                            href={projectAttachmentDownloadUrl(a.id)}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                openInNewTabWithAuth({ url: projectAttachmentDownloadUrl(a.id) }).catch(() => {
+                                                    window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                });
+                                            }}
+                                            className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                            title={a.originalName}
+                                        >
+                                            {a.originalName}
+                                        </a>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                downloadWithAuth({
+                                                    url: projectAttachmentDownloadUrl(a.id),
+                                                    filename: a.originalName,
+                                                }).catch(() => {
+                                                    window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                })
+                                            }
+                                            className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                                        >
+                                            Download
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveAttachment(a.id)}
+                                            disabled={deletingAttachmentId === a.id}
+                                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-60 dark:text-red-400 dark:hover:text-red-300"
+                                        >
+                                            {deletingAttachmentId === a.id ? 'Removing…' : 'Remove'}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
 

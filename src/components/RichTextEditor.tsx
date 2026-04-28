@@ -226,6 +226,9 @@ export default function RichTextEditor({
                     heading: { levels: [1, 2, 3] },
                     bulletList: { HTMLAttributes: { class: 'list-disc pl-4' } },
                     orderedList: { HTMLAttributes: { class: 'list-decimal pl-4' } },
+                    // Avoid duplicate extension registration: we add our own configured Link/Underline below.
+                    link: false,
+                    underline: false,
                     horizontalRule: {
                         HTMLAttributes: { class: 'border-gray-300 dark:border-gray-600' },
                     },

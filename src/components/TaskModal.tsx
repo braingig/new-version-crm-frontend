@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import type { MentionUser } from '@/components/MentionTextarea';
@@ -8,6 +8,13 @@ import RichTextEditor from '@/components/RichTextEditor';
 import ModalDropdown from '@/components/ModalDropdown';
 import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
+import {
+    deleteTaskAttachment,
+    downloadWithAuth,
+    openInNewTabWithAuth,
+    taskAttachmentDownloadUrl,
+    uploadTaskAttachment,
+} from '@/lib/attachments';
 
 export default function TaskModal({
     task,
@@ -29,6 +36,14 @@ export default function TaskModal({
     lists: any[];
 }) {
     const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [draftKey] = useState(() => {
+        // Stable per-modal session so uploads during create can be finalized after createTask.
+        if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return (crypto as any).randomUUID();
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    });
+    const [attachments, setAttachments] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -61,6 +76,7 @@ export default function TaskModal({
                 dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
                 estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
             });
+            setAttachments(task.attachments ?? []);
         } else if (parentTask) {
             setFormData({
                 title: '',
@@ -74,6 +90,7 @@ export default function TaskModal({
                 dueDate: '',
                 estimatedTime: '',
             });
+            setAttachments([]);
         } else {
             setFormData({
                 title: '',
@@ -87,8 +104,57 @@ export default function TaskModal({
                 dueDate: '',
                 estimatedTime: '',
             });
+            setAttachments([]);
         }
     }, [task, parentTask, isOpen]);
+
+    const attachmentOwner = useMemo(() => {
+        if (task?.id) return { taskId: task.id as string };
+        return { draftKey };
+    }, [task?.id, draftKey]);
+
+    const insertAttachmentLink = (name: string, url: string, id: string) => {
+        const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const html = `<p><a href="${url}" data-attachment-id="${id}" target="_blank" rel="noopener noreferrer">📎 ${safeName}</a></p>`;
+        setFormData((prev) => ({
+            ...prev,
+            description: prev.description && !isEmptyRichTextHtml(prev.description)
+                ? `${prev.description}${html}`
+                : html,
+        }));
+    };
+
+    const handlePickFile = () => fileInputRef.current?.click();
+
+    const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        try {
+            setUploading(true);
+            const { attachment, url } = await uploadTaskAttachment({
+                file: f,
+                taskId: (attachmentOwner as any).taskId,
+                draftKey: (attachmentOwner as any).draftKey,
+            });
+            setAttachments((prev) => [attachment, ...prev]);
+            insertAttachmentLink(attachment.originalName, url, attachment.id);
+        } catch (err: any) {
+            alert(err?.message || 'Failed to upload attachment');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteAttachment = async (id: string) => {
+        if (!window.confirm('Remove this attachment?')) return;
+        try {
+            await deleteTaskAttachment(id);
+            setAttachments((prev) => prev.filter((a) => a.id !== id));
+        } catch (err: any) {
+            alert(err?.message || 'Failed to delete attachment');
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,6 +182,10 @@ export default function TaskModal({
             projectId: formData.projectId || parentTask?.projectId,
             estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
         };
+        if (!task?.id) {
+            // Used to finalize draft uploads after the task is created.
+            submitData.attachmentDraftKey = draftKey;
+        }
         if (formData.listId) submitData.listId = formData.listId;
         if (formData.assignedToId) submitData.assignedToId = formData.assignedToId;
         if (task?.id) {
@@ -192,6 +262,72 @@ export default function TaskModal({
                             minHeightClassName="min-h-[220px]"
                             mentionUsers={users as MentionUser[]}
                         />
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                onChange={handleFileSelected}
+                            />
+                            <button
+                                type="button"
+                                onClick={handlePickFile}
+                                disabled={uploading}
+                                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                {uploading ? 'Uploading…' : 'Attach file'}
+                            </button>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Files are stored securely and linked in this description.
+                            </span>
+                        </div>
+                        {attachments.length > 0 && (
+                            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                                <div className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                    Attachments ({attachments.length})
+                                </div>
+                                <ul className="space-y-1.5">
+                                    {attachments.map((a: any) => (
+                                        <li key={a.id} className="flex items-center justify-between gap-3">
+                                            <a
+                                                href={taskAttachmentDownloadUrl(a.id)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    openInNewTabWithAuth({ url: taskAttachmentDownloadUrl(a.id) }).catch(() => {
+                                                        window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                    });
+                                                }}
+                                                className="truncate text-xs font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                                title={a.originalName}
+                                            >
+                                                {a.originalName}
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    downloadWithAuth({
+                                                        url: taskAttachmentDownloadUrl(a.id),
+                                                        filename: a.originalName,
+                                                    }).catch(() => {
+                                                        window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                    })
+                                                }
+                                                className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                                            >
+                                                Download
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteAttachment(a.id)}
+                                                className="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                            >
+                                                Remove
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <DescriptionRichTextField

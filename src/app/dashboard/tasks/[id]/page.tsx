@@ -49,6 +49,7 @@ import { RichTextContent } from '@/components/RichTextContent';
 import { MentionTextarea } from '@/components/MentionTextarea';
 import { useAuthStore } from '@/lib/store';
 import { useToast } from '@/components/ToastProvider';
+import { deleteTaskAttachment, downloadWithAuth, openInNewTabWithAuth, taskAttachmentDownloadUrl } from '@/lib/attachments';
 
 const priorityColors: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -148,6 +149,22 @@ export default function TaskDetailsPage() {
     const [adminDeleteTimeEntry] = useMutation(ADMIN_DELETE_TIME_ENTRY);
 
     const isAdmin = currentUser?.role === 'ADMIN';
+    const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+
+    const handleRemoveAttachment = async (id: string) => {
+        if (!isAdmin) return;
+        if (!window.confirm('Remove this attachment?')) return;
+        try {
+            setDeletingAttachmentId(id);
+            await deleteTaskAttachment(id);
+            await refetch();
+            showToast({ variant: 'success', message: 'Attachment removed.' });
+        } catch (e: any) {
+            showToast({ variant: 'error', message: e?.message || 'Failed to remove attachment.' });
+        } finally {
+            setDeletingAttachmentId(null);
+        }
+    };
 
     const handleStatusChange = (newStatus: string) => {
         setStatusDropdownOpen(false);
@@ -782,6 +799,60 @@ export default function TaskDetailsPage() {
                                 htmlOrText={task.description}
                                 className="text-gray-600 dark:text-gray-300"
                             />
+                        </div>
+                    )}
+                    {task.attachments && task.attachments.length > 0 && (
+                        <div className="card">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                                <DocumentTextIcon className="h-5 w-5 text-primary-600" />
+                                Attachments ({task.attachments.length})
+                            </h2>
+                            <ul className="space-y-2">
+                                {task.attachments.map((a: any) => (
+                                    <li
+                                        key={a.id}
+                                        className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/50"
+                                    >
+                                        <a
+                                            href={taskAttachmentDownloadUrl(a.id)}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                openInNewTabWithAuth({ url: taskAttachmentDownloadUrl(a.id) }).catch(() => {
+                                                    window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                });
+                                            }}
+                                            className="min-w-0 flex-1 truncate text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                            title={a.originalName}
+                                        >
+                                            {a.originalName}
+                                        </a>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                downloadWithAuth({
+                                                    url: taskAttachmentDownloadUrl(a.id),
+                                                    filename: a.originalName,
+                                                }).catch(() => {
+                                                    window.open(taskAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                                                })
+                                            }
+                                            className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                                        >
+                                            Download
+                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveAttachment(a.id)}
+                                                disabled={deletingAttachmentId === a.id}
+                                                className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-60 dark:text-red-400 dark:hover:text-red-300"
+                                            >
+                                                {deletingAttachmentId === a.id ? 'Removing…' : 'Remove'}
+                                            </button>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                     {task.note && (

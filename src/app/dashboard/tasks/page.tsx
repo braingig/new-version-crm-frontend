@@ -37,6 +37,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
 import { htmlToPlainText, isProbablyRichTextHtml } from '@/lib/richText';
 import DescriptionRichTextField from '@/components/DescriptionRichTextField';
+import { finalizeTaskDraft } from '@/lib/attachments';
 
 const priorityColors: { [key: string]: string } = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -804,6 +805,8 @@ export default function TasksPage() {
             } else {
                 // If creating a subtask, add parentTaskId and ensure projectId is set
                 const createData = { ...data };
+                const draftKey: string | undefined = createData.attachmentDraftKey;
+                delete createData.attachmentDraftKey;
                 if (parentTaskForModal) {
                     createData.parentTaskId = parentTaskForModal.id;
                     // Ensure projectId is set from parent if not already set
@@ -811,11 +814,20 @@ export default function TasksPage() {
                         createData.projectId = parentTaskForModal.projectId;
                     }
                 }
-                await createTask({
+                const result = await createTask({
                     variables: {
                         input: createData,
                     },
                 });
+                const newId = result?.data?.createTask?.id as string | undefined;
+                if (draftKey && newId) {
+                    try {
+                        await finalizeTaskDraft(draftKey, newId);
+                    } catch (e) {
+                        // Non-fatal: attachment records remain as drafts for the creator and can be retried
+                        console.warn('Failed to finalize draft attachments', e);
+                    }
+                }
                 showToast({ variant: 'success', message: 'Task created successfully.' });
             }
             setShowModal(false);

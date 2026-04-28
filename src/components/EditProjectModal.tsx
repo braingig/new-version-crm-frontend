@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation } from '@apollo/client';
 import { UPDATE_PROJECT } from '@/lib/graphql/queries';
 import { XMarkIcon } from '@heroicons/react/24/outline';
@@ -9,6 +9,13 @@ import ModalDropdown from '@/components/ModalDropdown';
 import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { isEmptyRichTextHtml } from '@/lib/richText';
 import type { MentionUser } from '@/components/MentionTextarea';
+import {
+  deleteProjectAttachment,
+  downloadWithAuth,
+  openInNewTabWithAuth,
+  projectAttachmentDownloadUrl,
+  uploadProjectAttachment,
+} from '@/lib/attachments';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -32,6 +39,9 @@ interface FormData {
 
 export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, project, mentionUsers = [] }: EditProjectModalProps) {
   const { showToast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -59,8 +69,48 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
         endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : '',
         clientName: project.clientName || '',
       });
+      setAttachments(project.attachments ?? []);
     }
   }, [project]);
+
+  const insertAttachmentLink = (name: string, url: string, id: string) => {
+    const safeName = name.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const html = `<p><a href="${url}" data-attachment-id="${id}" target="_blank" rel="noopener noreferrer">📎 ${safeName}</a></p>`;
+    setFormData((prev) => ({
+      ...prev,
+      description: prev.description && !isEmptyRichTextHtml(prev.description)
+        ? `${prev.description}${html}`
+        : html,
+    }));
+  };
+
+  const handlePickFile = () => fileInputRef.current?.click();
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f || !project?.id) return;
+    try {
+      setUploading(true);
+      const { attachment, url } = await uploadProjectAttachment({ file: f, projectId: project.id });
+      setAttachments((prev) => [attachment, ...prev]);
+      insertAttachmentLink(attachment.originalName, url, attachment.id);
+    } catch (err: any) {
+      showToast({ variant: 'error', message: err?.message || 'Failed to upload attachment.' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (id: string) => {
+    if (!window.confirm('Remove this attachment?')) return;
+    try {
+      await deleteProjectAttachment(id);
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+    } catch (err: any) {
+      showToast({ variant: 'error', message: err?.message || 'Failed to delete attachment.' });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,6 +307,69 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
                   </>
                 }
               />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileSelected}
+                />
+                <button
+                  type="button"
+                  onClick={handlePickFile}
+                  disabled={uploading}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  {uploading ? 'Uploading…' : 'Attach file'}
+                </button>
+              </div>
+              {attachments.length > 0 && (
+                <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                  <div className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+                    Attachments ({attachments.length})
+                  </div>
+                  <ul className="space-y-1.5">
+                    {attachments.map((a: any) => (
+                      <li key={a.id} className="flex items-center justify-between gap-3">
+                        <a
+                          href={projectAttachmentDownloadUrl(a.id)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openInNewTabWithAuth({ url: projectAttachmentDownloadUrl(a.id) }).catch(() => {
+                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                            });
+                          }}
+                          className="truncate text-xs font-medium text-primary-700 hover:underline dark:text-primary-300"
+                          title={a.originalName}
+                        >
+                          {a.originalName}
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadWithAuth({
+                              url: projectAttachmentDownloadUrl(a.id),
+                              filename: a.originalName,
+                            }).catch(() => {
+                              window.open(projectAttachmentDownloadUrl(a.id), '_blank', 'noopener,noreferrer');
+                            })
+                          }
+                          className="text-xs font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                        >
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAttachment(a.id)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2">

@@ -76,6 +76,13 @@ export const GET_PROJECTS = gql`
       name
       description
       note
+      attachments {
+        id
+        originalName
+        mimeType
+        size
+        createdAt
+      }
       budget
       hourlyRate
       status
@@ -98,6 +105,13 @@ export const GET_PROJECT = gql`
       name
       description
       note
+      attachments {
+        id
+        originalName
+        mimeType
+        size
+        createdAt
+      }
       budget
       hourlyRate
       status
@@ -134,6 +148,13 @@ export const GET_TASKS = gql`
       title
       description
       note
+      attachments {
+        id
+        originalName
+        mimeType
+        size
+        createdAt
+      }
       status
       priority
       projectId
@@ -171,6 +192,13 @@ export const GET_TASKS = gql`
         parentTaskId
         createdAt
         updatedAt
+        attachments {
+          id
+          originalName
+          mimeType
+          size
+          createdAt
+        }
         project {
           id
           name
@@ -291,6 +319,13 @@ export const GET_TASK_DETAILS = gql`
       title
       description
       note
+      attachments {
+        id
+        originalName
+        mimeType
+        size
+        createdAt
+      }
       status
       priority
       projectId
@@ -336,6 +371,13 @@ export const GET_TASK_DETAILS = gql`
         dueDate
         timeSpent
         estimatedTime
+        attachments {
+          id
+          originalName
+          mimeType
+          size
+          createdAt
+        }
         assignedTo {
           id
           name
