@@ -20,6 +20,7 @@ import {
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
 import { RichTextContent } from '@/components/RichTextContent';
+import { useAuthStore } from '@/lib/store';
 import {
     deleteProjectAttachment,
     downloadWithAuth,
@@ -41,6 +42,8 @@ export default function ProjectDetailsPage() {
     const router = useRouter();
     const { showToast } = useToast();
     const projectId = params?.id as string;
+    const currentUser = useAuthStore((state) => state.user);
+    const isAdmin = currentUser?.role === 'ADMIN';
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -98,6 +101,7 @@ export default function ProjectDetailsPage() {
     };
 
     const handleRemoveAttachment = async (id: string) => {
+        if (!isAdmin) return;
         if (!window.confirm('Remove this attachment?')) return;
         try {
             setDeletingAttachmentId(id);
@@ -316,14 +320,16 @@ export default function ProjectDetailsPage() {
                                         >
                                             Download
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemoveAttachment(a.id)}
-                                            disabled={deletingAttachmentId === a.id}
-                                            className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-60 dark:text-red-400 dark:hover:text-red-300"
-                                        >
-                                            {deletingAttachmentId === a.id ? 'Removing…' : 'Remove'}
-                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveAttachment(a.id)}
+                                                disabled={deletingAttachmentId === a.id}
+                                                className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-60 dark:text-red-400 dark:hover:text-red-300"
+                                            >
+                                                {deletingAttachmentId === a.id ? 'Removing…' : 'Remove'}
+                                            </button>
+                                        )}
                                     </li>
                                 ))}
                             </ul>

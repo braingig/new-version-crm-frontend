@@ -77,6 +77,7 @@ export default function TaskDetailsPage() {
     const taskId = params?.id as string;
     const currentUser = useAuthStore((state) => state.user);
     const currentUserId = currentUser?.id;
+    const isAdmin = currentUser?.role === 'ADMIN';
     const { showToast } = useToast();
 
     const [newComment, setNewComment] = useState('');
@@ -154,7 +155,6 @@ export default function TaskDetailsPage() {
     const [adminUpdateTimeEntry] = useMutation(ADMIN_UPDATE_TIME_ENTRY);
     const [adminDeleteTimeEntry] = useMutation(ADMIN_DELETE_TIME_ENTRY);
 
-    const isAdmin = currentUser?.role === 'ADMIN';
     const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
     const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({});
 
