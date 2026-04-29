@@ -138,18 +138,27 @@ export default function TaskModal({
     const handlePickFile = () => fileInputRef.current?.click();
 
     const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0];
+        const selected = e.target.files ? Array.from(e.target.files) : [];
         e.target.value = '';
-        if (!f) return;
+        if (selected.length === 0) return;
         try {
             setUploading(true);
-            const { attachment, url } = await uploadTaskAttachment({
-                file: f,
+            const uploaded = await uploadTaskAttachment({
+                files: selected,
                 taskId: (attachmentOwner as any).taskId,
                 draftKey: (attachmentOwner as any).draftKey,
             });
-            setAttachments((prev) => [attachment, ...prev]);
-            insertAttachmentLink(attachment.originalName, url, attachment.id);
+            setAttachments((prev) => [
+                ...uploaded.map((item) => item.attachment),
+                ...prev,
+            ]);
+            for (const item of uploaded) {
+                insertAttachmentLink(
+                    item.attachment.originalName,
+                    item.url,
+                    item.attachment.id,
+                );
+            }
         } catch (err: any) {
             alert(err?.message || 'Failed to upload attachment');
         } finally {
@@ -278,6 +287,7 @@ export default function TaskModal({
                             <input
                                 ref={fileInputRef}
                                 type="file"
+                                multiple
                                 className="hidden"
                                 onChange={handleFileSelected}
                             />
@@ -287,7 +297,7 @@ export default function TaskModal({
                                 disabled={uploading}
                                 className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                             >
-                                {uploading ? 'Uploading…' : 'Attach file'}
+                                {uploading ? 'Uploading…' : 'Attach files'}
                             </button>
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                                 Files are stored securely and linked in this description.

@@ -6,6 +6,11 @@ export type UploadedAttachment = {
   createdAt: string;
 };
 
+export type UploadedAttachmentResult = {
+  attachment: UploadedAttachment;
+  url: string;
+};
+
 function getRestBaseUrl(): string {
   const gql = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql';
   return gql.replace(/\/graphql\/?$/, '');
@@ -105,12 +110,15 @@ export function projectAttachmentDownloadUrl(id: string) {
 }
 
 export async function uploadTaskAttachment(params: {
-  file: File;
+  files: File[];
   taskId?: string;
   draftKey?: string;
-}): Promise<{ attachment: UploadedAttachment; url: string }> {
+}): Promise<UploadedAttachmentResult[]> {
+  if (!params.files?.length) return [];
   const form = new FormData();
-  form.append('file', params.file);
+  for (const file of params.files) {
+    form.append('files', file);
+  }
   if (params.taskId) form.append('taskId', params.taskId);
   if (params.draftKey) form.append('draftKey', params.draftKey);
 
@@ -122,19 +130,27 @@ export async function uploadTaskAttachment(params: {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.message || 'Upload failed');
   }
-  return {
-    attachment: json.attachment,
-    url: `${getRestBaseUrl()}${json.url}`,
-  };
+  const items: UploadedAttachmentResult[] = Array.isArray(json?.attachments)
+    ? json.attachments
+    : json?.attachment && json?.url
+      ? [{ attachment: json.attachment, url: json.url }]
+      : [];
+  return items.map((item) => ({
+    attachment: item.attachment,
+    url: `${getRestBaseUrl()}${item.url}`,
+  }));
 }
 
 export async function uploadProjectAttachment(params: {
-  file: File;
+  files: File[];
   projectId?: string;
   draftKey?: string;
-}): Promise<{ attachment: UploadedAttachment; url: string }> {
+}): Promise<UploadedAttachmentResult[]> {
+  if (!params.files?.length) return [];
   const form = new FormData();
-  form.append('file', params.file);
+  for (const file of params.files) {
+    form.append('files', file);
+  }
   if (params.projectId) form.append('projectId', params.projectId);
   if (params.draftKey) form.append('draftKey', params.draftKey);
 
@@ -146,10 +162,15 @@ export async function uploadProjectAttachment(params: {
   if (!res.ok || !json?.ok) {
     throw new Error(json?.message || 'Upload failed');
   }
-  return {
-    attachment: json.attachment,
-    url: `${getRestBaseUrl()}${json.url}`,
-  };
+  const items: UploadedAttachmentResult[] = Array.isArray(json?.attachments)
+    ? json.attachments
+    : json?.attachment && json?.url
+      ? [{ attachment: json.attachment, url: json.url }]
+      : [];
+  return items.map((item) => ({
+    attachment: item.attachment,
+    url: `${getRestBaseUrl()}${item.url}`,
+  }));
 }
 
 export async function finalizeTaskDraft(draftKey: string, taskId: string) {

@@ -98,14 +98,22 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
   const handlePickFile = () => fileInputRef.current?.click();
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
+    const selected = e.target.files ? Array.from(e.target.files) : [];
     e.target.value = '';
-    if (!f || !project?.id) return;
+    if (selected.length === 0 || !project?.id) return;
     try {
       setUploading(true);
-      const { attachment, url } = await uploadProjectAttachment({ file: f, projectId: project.id });
-      setAttachments((prev) => [attachment, ...prev]);
-      insertAttachmentLink(attachment.originalName, url, attachment.id);
+      const uploaded = await uploadProjectAttachment({
+        files: selected,
+        projectId: project.id,
+      });
+      setAttachments((prev) => [
+        ...uploaded.map((item) => item.attachment),
+        ...prev,
+      ]);
+      for (const item of uploaded) {
+        insertAttachmentLink(item.attachment.originalName, item.url, item.attachment.id);
+      }
     } catch (err: any) {
       showToast({ variant: 'error', message: err?.message || 'Failed to upload attachment.' });
     } finally {
@@ -323,6 +331,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   className="hidden"
                   onChange={handleFileSelected}
                 />
@@ -332,7 +341,7 @@ export default function EditProjectModal({ isOpen, onClose, onProjectUpdated, pr
                   disabled={uploading}
                   className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                 >
-                  {uploading ? 'Uploading…' : 'Attach file'}
+                  {uploading ? 'Uploading…' : 'Attach files'}
                 </button>
               </div>
               {attachments.length > 0 && (
