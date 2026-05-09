@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@apollo/client';
 import { GET_PROJECTS, GET_USERS } from '@/lib/graphql/queries';
@@ -12,13 +12,10 @@ import {
     UserGroupIcon
 } from '@heroicons/react/24/outline';
 import AddProjectModal from '@/components/AddProjectModal';
-import { RichTextContent } from '@/components/RichTextContent';
-import { htmlToPlainText } from '@/lib/richText';
 
 export default function ProjectsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     const { data, loading, refetch } = useQuery(GET_PROJECTS, {
         variables: statusFilter !== 'all' ? { filters: { status: statusFilter } } : {}
@@ -26,19 +23,6 @@ export default function ProjectsPage() {
     const { data: usersData } = useQuery(GET_USERS);
     const projects = data?.projects || [];
     const mentionUsers = usersData?.users || [];
-    const selectedProject = projects.find((project: any) => project.id === selectedProjectId) || projects[0];
-
-    useEffect(() => {
-        if (projects.length === 0) {
-            setSelectedProjectId('');
-            return;
-        }
-
-        const selectedStillExists = projects.some((project: any) => project.id === selectedProjectId);
-        if (!selectedStillExists) {
-            setSelectedProjectId(projects[0].id);
-        }
-    }, [projects, selectedProjectId]);
 
     const handleProjectAdded = () => {
         refetch();
@@ -73,11 +57,6 @@ export default function ProjectsPage() {
             day: 'numeric'
         });
     };
-
-    const descriptionPreview = selectedProject?.description
-        ? htmlToPlainText(selectedProject.description)
-        : '';
-    const isDescriptionLong = descriptionPreview.length > 280;
 
     if (loading) {
         return (
@@ -169,116 +148,56 @@ export default function ProjectsPage() {
                     </div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-4">
-                    <div className="card overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Projects</h3>
-                        </div>
-                        <div className="max-h-[70vh] overflow-y-auto">
-                            {projects.map((project: any) => {
-                                const isActive = selectedProject?.id === project.id;
-                                return (
-                                    <button
-                                        key={project.id}
-                                        type="button"
-                                        onClick={() => setSelectedProjectId(project.id)}
-                                        className={`w-full border-b border-gray-100 dark:border-gray-700 px-4 py-3 text-left transition-colors ${
-                                            isActive
-                                                ? 'bg-primary-50 dark:bg-primary-900/20'
-                                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
-                                        }`}
-                                    >
-                                        <p className={`text-sm font-medium ${isActive ? 'text-primary-700 dark:text-primary-300' : 'text-gray-900 dark:text-white'}`}>
-                                            {project.name}
-                                        </p>
-                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 truncate">
-                                            {project.clientName}
-                                        </p>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                <>
+                    <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">All projects</h3>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+                        </span>
                     </div>
-
-                    {selectedProject ? (
-                        <div className="card">
-                            <div className="p-6">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <Link
-                                                href={`/dashboard/projects/${selectedProject.id}`}
-                                                className="text-xl font-semibold text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400 hover:underline"
-                                            >
-                                                {selectedProject.name}
-                                            </Link>
-                                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedProject.status)}`}>
-                                                {selectedProject.status}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {projects.map((project: any) => {
+                            return (
+                                <Link
+                                    key={project.id}
+                                    href={`/dashboard/projects/${project.id}`}
+                                    className="group card hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-center gap-3">
+                                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                <FolderIcon className="h-5 w-5" />
                                             </span>
+                                            <div className="min-w-0">
+                                                <h4 className="truncate text-base font-semibold text-gray-900 dark:text-white">
+                                                    {project.name}
+                                                </h4>
+                                            </div>
                                         </div>
-                                        <div className="mt-3">
-                                            {isDescriptionLong ? (
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                    {descriptionPreview.slice(0, 280).trim()}...
-                                                    <Link
-                                                        href={`/dashboard/projects/${selectedProject.id}`}
-                                                        className="ml-1 font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                                    >
-                                                        See more
-                                                    </Link>
-                                                </p>
-                                            ) : (
-                                                <RichTextContent
-                                                    htmlOrText={selectedProject.description}
-                                                    className="text-sm text-gray-600 dark:text-gray-400"
-                                                />
-                                            )}
-                                        </div>
+                                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${getStatusColor(project.status)}`}>
+                                            {project.status?.replace(/_/g, ' ')}
+                                        </span>
                                     </div>
-                                    <Link
-                                        href={`/dashboard/projects/${selectedProject.id}`}
-                                        className="inline-flex shrink-0 items-center rounded-md bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
-                                    >
-                                        Open Details
-                                    </Link>
-                                </div>
 
-                                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                            <CurrencyDollarIcon className="h-4 w-4 mr-2" />
-                                            Budget
+                                    <div className="mt-4 grid grid-cols-1 gap-2 border-t border-gray-200 dark:border-gray-700 pt-3 text-xs">
+                                        <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                                            <UserGroupIcon className="h-4 w-4" />
+                                            <span className="truncate">{project.clientName || 'No client'}</span>
                                         </div>
-                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                                            {formatCurrency(selectedProject.budget)}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                            <UserGroupIcon className="h-4 w-4 mr-2" />
-                                            Client
+                                        <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                                            <CurrencyDollarIcon className="h-4 w-4" />
+                                            <span>{formatCurrency(project.budget)}</span>
                                         </div>
-                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                                            {selectedProject.clientName}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:col-span-2">
-                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                                            <CalendarIcon className="h-4 w-4 mr-2" />
-                                            Timeline
+                                        <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                                            <CalendarIcon className="h-4 w-4" />
+                                            <span>{formatDate(project.startDate)} - {formatDate(project.endDate)}</span>
                                         </div>
-                                        <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-                                            {formatDate(selectedProject.startDate)} - {formatDate(selectedProject.endDate)}
-                                        </p>
-                                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            Created {formatDate(selectedProject.createdAt)}
-                                        </p>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    ) : null}
-                </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </>
             )}
 
             <AddProjectModal
