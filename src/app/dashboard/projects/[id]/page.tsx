@@ -3,8 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@apollo/client';
-import { useEffect, useState } from 'react';
-import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, DELETE_PROJECT, GET_USERS } from '@/lib/graphql/queries';
+import { useEffect, useMemo, useState } from 'react';
+import { GET_PROJECT, GET_PROJECTS, GET_TASKS, GET_TASK_LISTS, CREATE_TASK, CREATE_TASK_LIST, DELETE_PROJECT, GET_USERS } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import {
     ArrowLeftIcon,
@@ -13,17 +13,22 @@ import {
     CurrencyDollarIcon,
     UserGroupIcon,
     UserCircleIcon,
-    ClipboardDocumentListIcon,
     Squares2X2Icon,
     PencilIcon,
+    PlusIcon,
     TrashIcon,
+    XMarkIcon,
 } from '@heroicons/react/24/outline';
 import EditProjectModal from '@/components/EditProjectModal';
+import TaskModal from '@/components/TaskModal';
+import DescriptionRichTextField from '@/components/DescriptionRichTextField';
 import { RichTextContent } from '@/components/RichTextContent';
 import { useAuthStore } from '@/lib/store';
+import { htmlToPlainText } from '@/lib/richText';
 import {
     deleteProjectAttachment,
     downloadWithAuth,
+    finalizeTaskDraft,
     getPreviewObjectUrlWithAuth,
     openInNewTabWithAuth,
     projectAttachmentDownloadUrl,
@@ -49,27 +54,45 @@ export default function ProjectDetailsPage() {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
     const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({});
+    const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+    const [showListModal, setShowListModal] = useState(false);
+    const [listDescription, setListDescription] = useState('');
+    const [taskModal, setTaskModal] = useState<{
+        open: boolean;
+        template: { projectId: string; listId: string } | null;
+        folderOptional: boolean;
+    }>({ open: false, template: null, folderOptional: false });
 
     const { data, loading, error, refetch } = useQuery(GET_PROJECT, {
         variables: { id: projectId },
         skip: !projectId,
     });
-    const { data: tasksData } = useQuery(GET_TASKS, {
+    const { data: tasksData, refetch: refetchTasks } = useQuery(GET_TASKS, {
         variables: { filters: { projectId } },
         skip: !projectId,
     });
-    const { data: listsData } = useQuery(GET_TASK_LISTS, {
+    const { data: listsData, refetch: refetchTaskLists } = useQuery(GET_TASK_LISTS, {
         variables: { projectId },
         skip: !projectId,
     });
     const { data: usersData } = useQuery(GET_USERS);
     const [deleteProject] = useMutation(DELETE_PROJECT);
+    const [createTask] = useMutation(CREATE_TASK);
+    const [createTaskList] = useMutation(CREATE_TASK_LIST);
 
     const project = data?.project;
     const tasks = tasksData?.tasks ?? [];
     const taskLists = listsData?.taskLists ?? [];
     const mentionUsers = usersData?.users ?? [];
     const openTaskCount = tasks.filter((t: any) => t.status !== 'COMPLETED').length;
+    const ungroupedTasks = tasks.filter((task: any) => !task.listId);
+    const descriptionPlainText = project?.description ? htmlToPlainText(project.description).trim() : '';
+    const isLongDescription = descriptionPlainText.length > 450;
+
+    const taskModalCreatePrefill = useMemo(() => {
+        if (taskModal.open && !taskModal.template && projectId) return { projectId };
+        return undefined;
+    }, [taskModal.open, taskModal.template, projectId]);
 
     const formatCurrency = (amount: number) =>
         new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -115,6 +138,90 @@ export default function ProjectDetailsPage() {
         }
     };
 
+    const handleSaveList = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const name = (formData.get('name') as string)?.trim();
+        const description = listDescription?.trim() || undefined;
+        if (!name) {
+            showToast({ variant: 'warning', message: 'Folder name is required.' });
+            return;
+        }
+        if (!projectId) return;
+        try {
+            await createTaskList({
+                variables: {
+                    input: {
+                        projectId,
+                        name,
+                        description,
+                    },
+                },
+            });
+            showToast({ variant: 'success', message: 'Folder created successfully.' });
+            setShowListModal(false);
+            setListDescription('');
+            await refetchTaskLists();
+        } catch (error: any) {
+            showToast({ variant: 'error', message: error?.message || 'Failed to save folder.' });
+        }
+    };
+
+    const handleSaveTask = async (data: any) => {
+        try {
+            const createData = { ...data };
+            const draftKey: string | undefined = createData.attachmentDraftKey;
+            delete createData.attachmentDraftKey;
+            const result = await createTask({
+                variables: { input: createData },
+            });
+            const newId = result?.data?.createTask?.id as string | undefined;
+            if (draftKey && newId) {
+                try {
+                    await finalizeTaskDraft(draftKey, newId);
+                } catch (e) {
+                    console.warn('Failed to finalize draft attachments', e);
+                }
+            }
+            showToast({ variant: 'success', message: 'Task created successfully.' });
+            setTaskModal({ open: false, template: null, folderOptional: false });
+            await refetchTasks();
+        } catch (error: any) {
+            console.error('Error saving task:', error);
+            if (error.graphQLErrors?.length > 0) {
+                showToast({
+                    variant: 'error',
+                    message: error.graphQLErrors[0].message || 'Failed to save task.',
+                });
+            } else if (error.networkError) {
+                const result = (error.networkError as any)?.result;
+                if (result?.errors) {
+                    showToast({
+                        variant: 'error',
+                        message: result.errors.map((err: any) => err.message).join(', ') || 'Server error.',
+                    });
+                } else {
+                    showToast({
+                        variant: 'error',
+                        message: error.networkError.message || 'Connection failed.',
+                    });
+                }
+            } else {
+                showToast({ variant: 'error', message: error?.message || 'Unknown error.' });
+            }
+        }
+    };
+
+    const openTaskModalForFolder = (listId: string) => {
+        if (!projectId) return;
+        setTaskModal({ open: true, template: { projectId, listId }, folderOptional: false });
+    };
+
+    const openTaskModalFree = () => {
+        if (!projectId) return;
+        setTaskModal({ open: true, template: null, folderOptional: true });
+    };
+
     useEffect(() => {
         const attachments: any[] = project?.attachments ?? [];
         let cancelled = false;
@@ -150,6 +257,10 @@ export default function ProjectDetailsPage() {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [project?.id, project?.attachments]);
+
+    useEffect(() => {
+        setIsDescriptionExpanded(false);
+    }, [project?.id]);
 
     if (!projectId) {
         return (
@@ -242,10 +353,26 @@ export default function ProjectDetailsPage() {
                             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                                 Description
                             </h2>
-                            <RichTextContent
-                                htmlOrText={project.description}
-                                className="text-gray-700 dark:text-gray-300"
-                            />
+                            <div className={!isDescriptionExpanded && isLongDescription ? 'relative' : ''}>
+                                <div className={!isDescriptionExpanded && isLongDescription ? 'max-h-40 overflow-hidden' : ''}>
+                                    <RichTextContent
+                                        htmlOrText={project.description}
+                                        className="text-gray-700 dark:text-gray-300"
+                                    />
+                                </div>
+                                {!isDescriptionExpanded && isLongDescription && (
+                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent dark:from-gray-800" />
+                                )}
+                            </div>
+                            {isLongDescription && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                                    className="mt-3 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                                >
+                                    {isDescriptionExpanded ? 'See less' : 'See more'}
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -336,57 +463,141 @@ export default function ProjectDetailsPage() {
                         </div>
                     )}
 
-                    {project.note && (
-                        <div className="card">
-                            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <PencilIcon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                                Note
-                            </h2>
-                            <RichTextContent
-                                htmlOrText={project.note}
-                                className="text-gray-700 dark:text-gray-300"
-                            />
-                        </div>
-                    )}
-
                     <div className="card">
-                        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                            <Squares2X2Icon className="h-4 w-4" />
-                            Tasks
-                        </h2>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                <Squares2X2Icon className="h-4 w-4" />
+                                Folders & Tasks
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setListDescription('');
+                                    setShowListModal(true);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-2.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:hover:bg-primary-500"
+                            >
+                                <PlusIcon className="h-3.5 w-3.5" />
+                                Folder
+                            </button>
+                        </div>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                             {tasks.length} total · {openTaskCount} open
                         </p>
                         {tasks.length === 0 ? (
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                No tasks found for this project.
+                                {taskLists.length === 0
+                                    ? 'Create a folder first, then you can add tasks to this project.'
+                                    : 'No tasks found for this project.'}
                             </p>
                         ) : (
-                            <div className="space-y-2">
-                                {tasks.map((task: any) => (
-                                    <Link
-                                        key={task.id}
-                                        href={`/dashboard/tasks/${task.id}`}
-                                        className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                                    >
-                                        <span className="text-sm font-medium text-gray-900 dark:text-white truncate pr-3">
-                                            {task.title}
-                                        </span>
-                                        <span
-                                            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
-                                                task.status === 'COMPLETED'
-                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                                                    : task.status === 'IN_PROGRESS'
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
-                                                        : task.status === 'REVIEW'
-                                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
-                                                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                                            }`}
+                            <div className="space-y-4">
+                                {taskLists.map((list: any) => {
+                                    const folderTasks = tasks.filter((task: any) => task.listId === list.id);
+
+                                    return (
+                                        <div
+                                            key={list.id}
+                                            className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700"
                                         >
-                                            {task.status?.replace(/_/g, ' ')}
-                                        </span>
-                                    </Link>
-                                ))}
+                                            <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                        {list.name}
+                                                    </h3>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openTaskModalForFolder(list.id)}
+                                                        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-600 px-2 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:hover:bg-primary-500"
+                                                    >
+                                                        <PlusIcon className="h-3.5 w-3.5" />
+                                                        Task
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="p-2 space-y-2">
+                                                {folderTasks.length === 0 ? (
+                                                    <p className="px-1 py-1 text-sm text-gray-500 dark:text-gray-400">
+                                                        No tasks in this folder.
+                                                    </p>
+                                                ) : (
+                                                    folderTasks.map((task: any) => (
+                                                        <Link
+                                                            key={task.id}
+                                                            href={`/dashboard/tasks/${task.id}`}
+                                                            className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                                        >
+                                                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate pr-3">
+                                                                {task.title}
+                                                            </span>
+                                                            <span
+                                                                className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                                    task.status === 'COMPLETED'
+                                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                                        : task.status === 'IN_PROGRESS'
+                                                                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                                            : task.status === 'REVIEW'
+                                                                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                                }`}
+                                                            >
+                                                                {task.status?.replace(/_/g, ' ')}
+                                                            </span>
+                                                        </Link>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {ungroupedTasks.length > 0 && (
+                                    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                                        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                    Without folder
+                                                </h3>
+                                                {taskLists.length > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={openTaskModalFree}
+                                                        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-600 px-2 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:hover:bg-primary-500"
+                                                    >
+                                                        <PlusIcon className="h-3.5 w-3.5" />
+                                                        Task
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="p-2 space-y-2">
+                                            {ungroupedTasks.map((task: any) => (
+                                                <Link
+                                                    key={task.id}
+                                                    href={`/dashboard/tasks/${task.id}`}
+                                                    className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                                >
+                                                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate pr-3">
+                                                        {task.title}
+                                                    </span>
+                                                    <span
+                                                        className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                                            task.status === 'COMPLETED'
+                                                                ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                                                : task.status === 'IN_PROGRESS'
+                                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                                                                    : task.status === 'REVIEW'
+                                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                                                                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                        }`}
+                                                    >
+                                                        {task.status?.replace(/_/g, ' ')}
+                                                    </span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -461,23 +672,110 @@ export default function ProjectDetailsPage() {
                         </dl>
                     </div>
 
-                    {taskLists.length > 0 && (
+                    {project.note && (
                         <div className="card">
                             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                <ClipboardDocumentListIcon className="h-4 w-4" />
-                                Folders
+                                <PencilIcon className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                                Note
                             </h2>
-                            <ul className="space-y-1">
-                                {taskLists.map((list: any) => (
-                                    <li key={list.id} className="text-sm text-gray-700 dark:text-gray-300">
-                                        {list.name}
-                                    </li>
-                                ))}
-                            </ul>
+                            <RichTextContent
+                                htmlOrText={project.note}
+                                className="text-gray-700 dark:text-gray-300"
+                            />
                         </div>
                     )}
                 </div>
             </div>
+
+            <TaskModal
+                task={
+                    taskModal.open && taskModal.template
+                        ? {
+                              projectId: taskModal.template.projectId,
+                              listId: taskModal.template.listId,
+                          }
+                        : null
+                }
+                parentTask={null}
+                isOpen={taskModal.open}
+                onClose={() => setTaskModal({ open: false, template: null, folderOptional: false })}
+                onSave={handleSaveTask}
+                projects={project ? [{ id: project.id, name: project.name }] : []}
+                users={mentionUsers}
+                lists={taskLists}
+                createPrefill={taskModalCreatePrefill}
+                folderOptional={taskModal.folderOptional}
+            />
+
+            {showListModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                Create Folder
+                            </h2>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowListModal(false);
+                                    setListDescription('');
+                                }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <XMarkIcon className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleSaveList} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Name *
+                                </label>
+                                <input
+                                    name="name"
+                                    type="text"
+                                    required
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                />
+                            </div>
+                            <div>
+                                <DescriptionRichTextField
+                                    label="Description"
+                                    value={listDescription}
+                                    onChange={setListDescription}
+                                    placeholder="Add folder description..."
+                                    minHeightClassName="min-h-[120px]"
+                                    mentionUsers={mentionUsers}
+                                    helperText={
+                                        <>
+                                            Type{' '}
+                                            <kbd className="px-1 rounded bg-gray-100 dark:bg-gray-700">@</kbd> to
+                                            mention someone.
+                                        </>
+                                    }
+                                />
+                            </div>
+                            <div className="flex justify-end space-x-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowListModal(false);
+                                        setListDescription('');
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
+                                >
+                                    Create Folder
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             <EditProjectModal
                 isOpen={isEditModalOpen}

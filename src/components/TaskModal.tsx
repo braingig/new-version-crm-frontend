@@ -24,6 +24,8 @@ export default function TaskModal({
     projects,
     users,
     lists,
+    createPrefill,
+    folderOptional = false,
 }: {
     task: any | null;
     parentTask: { id: string; projectId: string; title: string } | null;
@@ -33,6 +35,10 @@ export default function TaskModal({
     projects: any[];
     users: any[];
     lists: any[];
+    /** When creating (no saved task yet), pre-fill project / folder fields. */
+    createPrefill?: { projectId?: string; listId?: string };
+    /** When true, folder may be left empty (“No folder”). */
+    folderOptional?: boolean;
 }) {
     const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -108,8 +114,8 @@ export default function TaskModal({
                 description: '',
                 note: '',
                 priority: 'MEDIUM',
-                projectId: '',
-                listId: '',
+                projectId: createPrefill?.projectId ?? '',
+                listId: createPrefill?.listId ?? '',
                 assignedToId: '',
                 assigneeIds: [],
                 dueDate: '',
@@ -117,7 +123,7 @@ export default function TaskModal({
             });
             setAttachments([]);
         }
-    }, [task, parentTask, isOpen]);
+    }, [task, parentTask, isOpen, createPrefill]);
 
     const attachmentOwner = useMemo(() => {
         if (task?.id) return { taskId: task.id as string };
@@ -188,7 +194,7 @@ export default function TaskModal({
                 alert('Project is required');
                 return;
             }
-            if (!formData.listId) {
+            if (!folderOptional && !formData.listId) {
                 alert('Folder is required');
                 return;
             }
@@ -413,18 +419,24 @@ export default function TaskModal({
                                 </div>
                                 <div className="mt-3">
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Folder *
+                                        Folder{folderOptional ? '' : ' *'}
                                     </label>
                                     <ModalDropdown
                                         value={formData.listId}
                                         onChange={(v) => setFormData({ ...formData, listId: v })}
                                         placeholder="Select Folder"
-                                        options={lists
-                                            .filter((list: any) => !formData.projectId || list.projectId === formData.projectId)
-                                            .map((list: any) => ({
-                                                value: list.id,
-                                                label: list.name,
-                                            }))}
+                                        options={[
+                                            ...(folderOptional ? [{ value: '', label: 'No folder' }] : []),
+                                            ...lists
+                                                .filter(
+                                                    (list: any) =>
+                                                        !formData.projectId || list.projectId === formData.projectId,
+                                                )
+                                                .map((list: any) => ({
+                                                    value: list.id,
+                                                    label: list.name,
+                                                })),
+                                        ]}
                                     />
                                 </div>
                             </>
