@@ -141,6 +141,45 @@ export const CREATE_PROJECT = gql`
   }
 `;
 
+export const GET_MY_TASKS = gql`
+  query GetMyTasks($filters: TaskFiltersInput) {
+    tasks(filters: $filters) {
+      id
+      title
+      status
+      priority
+      projectId
+      listId
+      dueDate
+      startDate
+      estimatedTime
+      timeSpent
+      parentTaskId
+      project {
+        id
+        name
+      }
+      list {
+        id
+        name
+      }
+      parentTask {
+        id
+        title
+      }
+      assignees {
+        id
+        name
+      }
+      createdBy {
+        id
+        name
+      }
+      updatedAt
+    }
+  }
+`;
+
 export const GET_TASKS = gql`
   query GetTasks($filters: TaskFiltersInput) {
     tasks(filters: $filters) {
@@ -176,6 +215,10 @@ export const GET_TASKS = gql`
         name
         email
       }
+      createdBy {
+        id
+        name
+      }
       subTasks {
         id
         title
@@ -192,6 +235,14 @@ export const GET_TASKS = gql`
         parentTaskId
         createdAt
         updatedAt
+        createdBy {
+          id
+          name
+        }
+        assignees {
+          id
+          name
+        }
         attachments {
           id
           originalName
@@ -206,17 +257,24 @@ export const GET_TASKS = gql`
         subTasks {
           id
           title
+          description
           status
           priority
           projectId
           listId
           assignedToId
+          dueDate
+          updatedAt
           parentTaskId
-        }
-        assignees {
-          id
-          name
-          email
+          project {
+            id
+            name
+          }
+          assignees {
+            id
+            name
+            email
+          }
         }
       }
     }
@@ -477,6 +535,40 @@ export const ADD_COMMENT = gql`
       id
       content
       createdAt
+      user {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const GET_MY_TASK_MENTIONS = gql`
+  query GetMyTaskMentions {
+    myTaskMentions {
+      id
+      message
+      isRead
+      createdAt
+      taskId
+      taskTitle
+      contextType
+      excerpt
+      focusHash
+    }
+  }
+`;
+
+export const GET_MY_TASK_COMMENTS = gql`
+  query GetMyTaskComments {
+    myTaskComments {
+      id
+      taskId
+      content
+      createdAt
+      taskTitle
+      projectName
       user {
         id
         name

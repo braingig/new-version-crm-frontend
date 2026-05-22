@@ -11,6 +11,7 @@ import {
     ChartBarIcon,
     DocumentChartBarIcon,
     CalendarDaysIcon,
+    ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/lib/store';
 import { getAllowedRoutes } from '@/lib/permissions';
@@ -20,6 +21,7 @@ const allNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'Employees', href: '/dashboard/employees', icon: UserGroupIcon },
     { name: 'Projects', href: '/dashboard/projects', icon: FolderIcon },
+    { name: 'My Tasks', href: '/dashboard/my-tasks', icon: ClipboardDocumentListIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClockIcon },
     { name: 'Work schedule', href: '/dashboard/work-schedule', icon: CalendarDaysIcon },
     // Time Tracker – commented out for now
@@ -59,7 +61,9 @@ export default function Sidebar() {
                         <li>
                             <ul role="list" className="space-y-1">
                                 {navigation.map((item) => {
-                                    const isActive = pathname === item.href;
+                                    const isActive =
+                                        pathname === item.href ||
+                                        (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
                                     return (
                                         <li key={item.name}>
                                             <Link

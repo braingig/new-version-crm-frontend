@@ -12,6 +12,7 @@ import {
     UPDATE_TASK,
     DELETE_TASK,
     ADD_COMMENT,
+    GET_MY_TASK_COMMENTS,
     GET_ACTIVE_TIME_ENTRY,
     START_TIME_ENTRY,
     STOP_TIME_ENTRY,
@@ -56,6 +57,7 @@ import {
     openInNewTabWithAuth,
     taskAttachmentDownloadUrl,
 } from '@/lib/attachments';
+import { pushRecentTask } from '@/lib/recentTasks';
 
 const priorityColors: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
@@ -112,6 +114,32 @@ export default function TaskDetailsPage() {
     });
 
     const task = data?.task;
+
+    useEffect(() => {
+        if (!task?.id || loading) return;
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        if (!hash) return;
+        const timer = window.setTimeout(() => {
+            document.querySelector(hash)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }, 150);
+        return () => window.clearTimeout(timer);
+    }, [task?.id, loading]);
+
+    useEffect(() => {
+        if (!task?.id || !currentUserId) return;
+        pushRecentTask(currentUserId, {
+            id: task.id,
+            title: task.title,
+            projectId: task.projectId,
+            projectName: task.project?.name ?? 'Project',
+            listName: null,
+            status: task.status,
+        });
+    }, [task?.id, task?.title, task?.projectId, task?.project?.name, task?.status, currentUserId]);
+
     const hasSubtasks = !!(task?.subTasks?.length);
     const subtaskIds = hasSubtasks ? task!.subTasks!.map((st: any) => st.id) : [];
 
@@ -141,6 +169,7 @@ export default function TaskDetailsPage() {
         onCompleted: () => router.push('/dashboard/tasks'),
     });
     const [addComment, { loading: addingComment }] = useMutation(ADD_COMMENT, {
+        refetchQueries: [{ query: GET_MY_TASK_COMMENTS }],
         onCompleted: () => {
             setNewComment('');
             refetch();
@@ -835,7 +864,7 @@ export default function TaskDetailsPage() {
                 {/* Main content */}
                 <div className="lg:col-span-2 space-y-6">
                     {task.description && (
-                        <div className="card">
+                        <div id="task-description" className="card scroll-mt-24">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                                 <DocumentTextIcon className="h-5 w-5 text-primary-600" />
                                 Description
@@ -934,7 +963,7 @@ export default function TaskDetailsPage() {
                         </div>
                     )}
                     {task.note && (
-                        <div className="card">
+                        <div id="task-note" className="card scroll-mt-24">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                                 <PencilIcon className="h-5 w-5 text-primary-600" />
                                 Note
@@ -1329,7 +1358,7 @@ export default function TaskDetailsPage() {
                     </div>
 
                     {/* Comments */}
-                    <div className="card">
+                    <div id="task-comments" className="card scroll-mt-24">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
                             <ChatBubbleLeftRightIcon className="h-5 w-5 text-primary-600" />
                             Comments ({task.comments?.length ?? 0})

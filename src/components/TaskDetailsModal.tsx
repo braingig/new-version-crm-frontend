@@ -1,12 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { useQuery, useMutation } from '@apollo/client';
-import { GET_TASK_DETAILS, GET_ACTIVE_TIME_ENTRY, GET_TIME_ENTRIES, START_TIME_ENTRY, STOP_TIME_ENTRY } from '@/lib/graphql/queries';
+import {
+    GET_TASK_DETAILS,
+    GET_ACTIVE_TIME_ENTRY,
+    GET_TIME_ENTRIES,
+    GET_PROJECTS,
+    GET_USERS,
+    GET_TASK_LISTS,
+    START_TIME_ENTRY,
+    STOP_TIME_ENTRY,
+    UPDATE_TASK,
+} from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
 import { RichTextContent } from '@/components/RichTextContent';
+import TaskModal from '@/components/TaskModal';
 
 interface TaskDetailsModalProps {
     taskId: string | null;
@@ -16,10 +28,22 @@ interface TaskDetailsModalProps {
 
 export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetailsModalProps) {
     const { showToast } = useToast();
-    const { data, loading, error } = useQuery(GET_TASK_DETAILS, {
+    const [showEditModal, setShowEditModal] = useState(false);
+
+    const { data, loading, error, refetch } = useQuery(GET_TASK_DETAILS, {
         variables: { id: taskId as string },
         skip: !taskId || !isOpen,
     });
+
+    const { data: projectsData } = useQuery(GET_PROJECTS, { skip: !isOpen });
+    const { data: usersData } = useQuery(GET_USERS, { skip: !isOpen });
+    const task = data?.task;
+    const { data: listsData } = useQuery(GET_TASK_LISTS, {
+        variables: { projectId: task?.projectId ?? '' },
+        skip: !isOpen || !task?.projectId,
+    });
+
+    const [updateTask] = useMutation(UPDATE_TASK);
 
     const { data: activeData, refetch: refetchActive } = useQuery(GET_ACTIVE_TIME_ENTRY, {
         skip: !isOpen,
@@ -37,7 +61,6 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
 
     const [liveTotalSeconds, setLiveTotalSeconds] = useState<number | null>(null);
 
-    const task = data?.task;
     const activeEntry = activeData?.activeTimeEntry;
     const isActiveForThisTask = !!activeEntry && activeEntry.taskId === taskId;
     const timeEntries = timeEntriesData?.timeEntries || [];
@@ -81,6 +104,21 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
     }, [isActiveForThisTask, activeEntry, totalSecondsCompleted]);
 
     if (!isOpen || !taskId) return null;
+
+    const handleEditSave = async (submitData: Record<string, unknown>) => {
+        try {
+            const { projectId: _p, listId: _l, ...updateData } = submitData;
+            await updateTask({
+                variables: { id: taskId, input: updateData },
+            });
+            await refetch();
+            setShowEditModal(false);
+            showToast({ variant: 'success', message: 'Task updated successfully.' });
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : 'Failed to update task.';
+            showToast({ variant: 'error', message: msg });
+        }
+    };
 
     const handleStartTimer = async () => {
         if (!taskId) return;
@@ -127,15 +165,39 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                             </p>
                         )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                    >
-                        <XMarkIcon className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {task && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditModal(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                                    title="Edit task"
+                                >
+                                    <PencilIcon className="h-4 w-4" />
+                                    Edit
+                                </button>
+                                <Link
+                                    href={`/dashboard/tasks/${task.id}#task-description`}
+                                    className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                    onClick={onClose}
+                                >
+                                    Open full page
+                                </Link>
+                            </>
+                        )}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+                        >
+                            <XMarkIcon className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-4">
                     {loading && (
                         <div className="py-6 text-center text-gray-500 text-sm">
                             Loading task details...
@@ -148,22 +210,30 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                     )}
                     {task && !loading && !error && (
                         <>
-                            {task.description && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                                        Description
-                                    </h3>
-                                    <RichTextContent htmlOrText={task.description} />
-                                </div>
-                            )}
+                            <div id="task-description">
+                                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
+                                    Description
+                                </h3>
+                                {task.description ? (
+                                    <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/50">
+                                        <RichTextContent htmlOrText={task.description} />
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        No description. Use Edit to add one.
+                                    </p>
+                                )}
+                            </div>
                             {task.note && (
-                                <div>
+                                <div id="task-note">
                                     <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                                         Note
                                     </h3>
-                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                        <MentionFormattedText text={task.note} />
-                                    </p>
+                                    <div className="max-h-32 overflow-y-auto rounded-md border border-gray-200 bg-gray-50/80 px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+                                        <p className="whitespace-pre-wrap">
+                                            <MentionFormattedText text={task.note} />
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 
@@ -279,6 +349,32 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                 </div>
                             )}
 
+                            {task.comments && task.comments.length > 0 && (
+                                <div id="task-comments">
+                                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                                        Comments ({task.comments.length})
+                                    </h3>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                        {task.comments.map((c: { id: string; content: string; createdAt: string; user?: { name?: string } }) => (
+                                            <div
+                                                key={c.id}
+                                                className="rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2"
+                                            >
+                                                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                                    <span>{c.user?.name ?? 'Someone'}</span>
+                                                    <span>
+                                                        {new Date(c.createdAt).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
+                                                    <MentionFormattedText text={c.content} />
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {task.subTasks && task.subTasks.length > 0 && (
                                 <div>
                                     <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -302,42 +398,31 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                 </div>
                             )}
 
-                            {task.comments && task.comments.length > 0 && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                        Comments
-                                    </h3>
-                                    <div className="space-y-3">
-                                        {task.comments.map((c: any) => (
-                                            <div
-                                                key={c.id}
-                                                className="rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2"
-                                            >
-                                                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                                    <span>{c.user?.name || 'Unknown'}</span>
-                                                    <span>{new Date(c.createdAt).toLocaleString()}</span>
-                                                </div>
-                                                <p className="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-wrap">
-                                                    <MentionFormattedText text={c.content} />
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </>
                     )}
                 </div>
-
-                <div className="px-5 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
-                    >
-                        Close
-                    </button>
-                </div>
             </div>
+
+            {task && (
+                <TaskModal
+                    task={task}
+                    parentTask={
+                        task.parentTask
+                            ? {
+                                  id: task.parentTask.id,
+                                  projectId: task.projectId ?? task.project?.id ?? '',
+                                  title: task.parentTask.title,
+                              }
+                            : null
+                    }
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    onSave={handleEditSave}
+                    projects={projectsData?.projects ?? []}
+                    users={usersData?.users ?? []}
+                    lists={listsData?.taskLists ?? []}
+                />
+            )}
         </div>
     );
 }

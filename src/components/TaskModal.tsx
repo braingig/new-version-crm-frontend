@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery } from '@apollo/client';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
+import { GET_TASK_DETAILS } from '@/lib/graphql/queries';
 import type { MentionUser } from '@/components/MentionTextarea';
 import RichTextEditor from '@/components/RichTextEditor';
 import ModalDropdown from '@/components/ModalDropdown';
@@ -74,26 +76,40 @@ export default function TaskModal({
         estimatedTime: '',
     });
 
+    const { data: fullTaskData, loading: loadingFullTask } = useQuery(GET_TASK_DETAILS, {
+        variables: { id: task?.id as string },
+        skip: !task?.id || !isOpen,
+        fetchPolicy: 'network-only',
+    });
+
+    /** Full task row from API so description/note always load (list/kanban rows can be partial). */
+    const taskForForm = task?.id ? fullTaskData?.task ?? task : task;
+
     useEffect(() => {
-        if (task) {
-            const ids = task.assignees?.length
-                ? task.assignees.map((a: any) => a.id)
-                : task.assignedToId
-                    ? [task.assignedToId]
+        if (taskForForm) {
+            const ids = taskForForm.assignees?.length
+                ? taskForForm.assignees.map((a: any) => a.id)
+                : taskForForm.assignedToId
+                    ? [taskForForm.assignedToId]
                     : [];
             setFormData({
-                title: task.title || '',
-                description: task.description || '',
-                note: task.note || '',
-                priority: task.priority || 'MEDIUM',
-                projectId: task.projectId || (task.project?.id ?? ''),
-                listId: task.listId || '',
-                assignedToId: task.assignedToId || '',
+                title: taskForForm.title || '',
+                description: taskForForm.description || '',
+                note: taskForForm.note || '',
+                priority: taskForForm.priority || 'MEDIUM',
+                projectId: taskForForm.projectId || (taskForForm.project?.id ?? ''),
+                listId: taskForForm.listId || '',
+                assignedToId: taskForForm.assignedToId || '',
                 assigneeIds: ids,
-                dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
-                estimatedTime: task.estimatedTime != null ? parseFloat((task.estimatedTime / 60).toFixed(2)).toString() : '',
+                dueDate: taskForForm.dueDate
+                    ? new Date(taskForForm.dueDate).toISOString().split('T')[0]
+                    : '',
+                estimatedTime:
+                    taskForForm.estimatedTime != null
+                        ? parseFloat((taskForForm.estimatedTime / 60).toFixed(2)).toString()
+                        : '',
             });
-            setAttachments(task.attachments ?? []);
+            setAttachments(taskForForm.attachments ?? []);
         } else if (parentTask) {
             setFormData({
                 title: '',
@@ -123,7 +139,7 @@ export default function TaskModal({
             });
             setAttachments([]);
         }
-    }, [task, parentTask, isOpen, createPrefill]);
+    }, [taskForForm, parentTask, isOpen, createPrefill]);
 
     const attachmentOwner = useMemo(() => {
         if (task?.id) return { taskId: task.id as string };
@@ -199,12 +215,16 @@ export default function TaskModal({
                 return;
             }
         }
+        const emptyDesc = isEmptyRichTextHtml(formData.description);
+        const emptyNote = isEmptyRichTextHtml(formData.note);
         const submitData: any = {
             title: formData.title.trim(),
-            description: !isEmptyRichTextHtml(formData.description)
-                ? formData.description
-                : undefined,
-            note: !isEmptyRichTextHtml(formData.note) ? formData.note : undefined,
+            description: emptyDesc
+                ? task?.id
+                    ? ''
+                    : undefined
+                : formData.description,
+            note: emptyNote ? (task?.id ? '' : undefined) : formData.note,
             priority: formData.priority,
             projectId: formData.projectId || parentTask?.projectId,
             estimatedTime: formData.estimatedTime ? Math.round(parseFloat(formData.estimatedTime) * 60) : undefined,
@@ -262,6 +282,16 @@ export default function TaskModal({
                     </button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto px-6 py-5">
+                    {task?.id && loadingFullTask && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Loading task…</p>
+                    )}
+                    {taskForForm?.status === 'REVIEW' && (
+                        <p className="text-xs text-purple-800 dark:text-purple-200 bg-purple-50 dark:bg-purple-900/25 border border-purple-100 dark:border-purple-800/50 rounded-md px-3 py-2">
+                            This task is in <strong>Review</strong>. You can still edit title, description,
+                            note, assignees, and dates. Only an admin can mark it{' '}
+                            <strong>Complete</strong> from the task page status menu.
+                        </p>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
                         <input
