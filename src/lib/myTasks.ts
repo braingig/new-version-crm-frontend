@@ -104,9 +104,10 @@ export function isNeedsAttentionTask(task: {
   dueDate?: string | null;
 }): boolean {
   if (!isOpenTask(task.status)) return false;
+  const status = normalizeTaskStatus(task.status);
   return (
-    isTaskOverdue(task.dueDate, task.status) ||
-    isTaskDueWithinDays(task.dueDate, task.status, TEAM_NEEDS_ATTENTION_DUE_DAYS)
+    isTaskOverdue(task.dueDate, status) ||
+    isTaskDueWithinDays(task.dueDate, status, TEAM_NEEDS_ATTENTION_DUE_DAYS)
   );
 }
 

@@ -73,7 +73,7 @@ export default function CommentsAndMentionsPanel() {
         errorPolicy: 'all',
     });
 
-    const mentionItems = useMemo(() => {
+    const mentionItems = useMemo((): FeedItem[] => {
         const list = mentionsData?.myTaskMentions ?? [];
         return list.map(
             (n: {
@@ -101,7 +101,7 @@ export default function CommentsAndMentionsPanel() {
         );
     }, [mentionsData?.myTaskMentions]);
 
-    const commentItems = useMemo(() => {
+    const commentItems = useMemo((): FeedItem[] => {
         const list = commentsData?.myTaskComments ?? [];
         return list.map(
             (c: {
@@ -132,7 +132,7 @@ export default function CommentsAndMentionsPanel() {
         return [...mentionItems, ...commentItems].sort((a, b) => b.at - a.at);
     }, [mentionItems, commentItems]);
 
-    const filtered = useMemo(() => {
+    const filtered = useMemo((): FeedItem[] => {
         if (tab === 'mentions') return mentionItems;
         if (tab === 'comments') return commentItems;
         return allItems;
@@ -206,7 +206,7 @@ export default function CommentsAndMentionsPanel() {
                 )}
                 {!queryError && filtered.length > 0 && (
                     <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {filtered.map((item) => {
+                        {filtered.map((item: FeedItem) => {
                             const href =
                                 item.kind === 'mention'
                                     ? taskLinkWithMentionFocus(item.taskId, item.focusHash)
