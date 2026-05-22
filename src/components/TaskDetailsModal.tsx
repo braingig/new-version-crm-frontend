@@ -2,23 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useMutation } from '@apollo/client';
 import {
     GET_TASK_DETAILS,
     GET_ACTIVE_TIME_ENTRY,
     GET_TIME_ENTRIES,
-    GET_PROJECTS,
-    GET_USERS,
-    GET_TASK_LISTS,
     START_TIME_ENTRY,
     STOP_TIME_ENTRY,
-    UPDATE_TASK,
 } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
 import { MentionFormattedText } from '@/components/MentionFormattedText';
 import { RichTextContent } from '@/components/RichTextContent';
-import TaskModal from '@/components/TaskModal';
 
 interface TaskDetailsModalProps {
     taskId: string | null;
@@ -28,22 +23,13 @@ interface TaskDetailsModalProps {
 
 export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetailsModalProps) {
     const { showToast } = useToast();
-    const [showEditModal, setShowEditModal] = useState(false);
 
-    const { data, loading, error, refetch } = useQuery(GET_TASK_DETAILS, {
+    const { data, loading, error } = useQuery(GET_TASK_DETAILS, {
         variables: { id: taskId as string },
         skip: !taskId || !isOpen,
     });
 
-    const { data: projectsData } = useQuery(GET_PROJECTS, { skip: !isOpen });
-    const { data: usersData } = useQuery(GET_USERS, { skip: !isOpen });
     const task = data?.task;
-    const { data: listsData } = useQuery(GET_TASK_LISTS, {
-        variables: { projectId: task?.projectId ?? '' },
-        skip: !isOpen || !task?.projectId,
-    });
-
-    const [updateTask] = useMutation(UPDATE_TASK);
 
     const { data: activeData, refetch: refetchActive } = useQuery(GET_ACTIVE_TIME_ENTRY, {
         skip: !isOpen,
@@ -105,21 +91,6 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
 
     if (!isOpen || !taskId) return null;
 
-    const handleEditSave = async (submitData: Record<string, unknown>) => {
-        try {
-            const { projectId: _p, listId: _l, ...updateData } = submitData;
-            await updateTask({
-                variables: { id: taskId, input: updateData },
-            });
-            await refetch();
-            setShowEditModal(false);
-            showToast({ variant: 'success', message: 'Task updated successfully.' });
-        } catch (e: unknown) {
-            const msg = e instanceof Error ? e.message : 'Failed to update task.';
-            showToast({ variant: 'error', message: msg });
-        }
-    };
-
     const handleStartTimer = async () => {
         if (!taskId) return;
         try {
@@ -167,24 +138,13 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                     </div>
                     <div className="flex items-center gap-2">
                         {task && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEditModal(true)}
-                                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                                    title="Edit task"
-                                >
-                                    <PencilIcon className="h-4 w-4" />
-                                    Edit
-                                </button>
-                                <Link
-                                    href={`/dashboard/tasks/${task.id}#task-description`}
-                                    className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                    onClick={onClose}
-                                >
-                                    Open full page
-                                </Link>
-                            </>
+                            <Link
+                                href={`/dashboard/tasks/${task.id}#task-description`}
+                                className="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                onClick={onClose}
+                            >
+                                Open full page
+                            </Link>
                         )}
                         <button
                             type="button"
@@ -220,7 +180,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     </div>
                                 ) : (
                                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                                        No description. Use Edit to add one.
+                                        No description. Open full page to edit.
                                     </p>
                                 )}
                             </div>
@@ -402,27 +362,6 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                     )}
                 </div>
             </div>
-
-            {task && (
-                <TaskModal
-                    task={task}
-                    parentTask={
-                        task.parentTask
-                            ? {
-                                  id: task.parentTask.id,
-                                  projectId: task.projectId ?? task.project?.id ?? '',
-                                  title: task.parentTask.title,
-                              }
-                            : null
-                    }
-                    isOpen={showEditModal}
-                    onClose={() => setShowEditModal(false)}
-                    onSave={handleEditSave}
-                    projects={projectsData?.projects ?? []}
-                    users={usersData?.users ?? []}
-                    lists={listsData?.taskLists ?? []}
-                />
-            )}
         </div>
     );
 }

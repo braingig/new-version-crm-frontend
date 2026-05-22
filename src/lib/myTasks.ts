@@ -133,7 +133,8 @@ export function isTaskDueWithinDays(
   return !isBefore(due, today) && !isAfter(due, windowEnd);
 }
 
-export const TEAM_NEEDS_ATTENTION_DUE_DAYS = 7;
+/** Overdue + “due soon” window for Needs attention (admin team + employee My Work). */
+export const TEAM_NEEDS_ATTENTION_DUE_DAYS = 3;
 
 export function groupTasksByBucket(
   tasks: MyTaskItem[],

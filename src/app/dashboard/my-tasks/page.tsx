@@ -2,10 +2,6 @@
 
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
-import {
-    ChevronDownIcon,
-    ChevronRightIcon,
-} from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
 import { GET_MY_TASKS, UPDATE_TASK } from '@/lib/graphql/queries';
 import { useAuthStore } from '@/lib/store';
@@ -13,34 +9,28 @@ import { useToast } from '@/components/ToastProvider';
 import TaskDetailsModal from '@/components/TaskDetailsModal';
 import {
     type MyTaskItem,
-    type MyTaskBucket,
     STATUS_LABELS,
     STATUS_OPTIONS,
-    groupTasksByBucket,
     sortByDueDate,
     taskLocationLabel,
-    priorityFlagClass,
     STATUS_GROUP_HEADER,
     assigneeIdsForTask,
     deriveAssignedProjects,
+    isTaskOverdue,
+    isTaskDueWithinDays,
+    normalizeTaskStatus,
+    TEAM_NEEDS_ATTENTION_DUE_DAYS,
 } from '@/lib/myTasks';
 import AdminTeamOverview from '@/components/my-tasks/AdminTeamOverview';
 import AssignedProjectsCard from '@/components/my-tasks/AssignedProjectsCard';
 import RecentsCard from '@/components/my-tasks/RecentsCard';
 import CommentsAndMentionsPanel from '@/components/my-tasks/CommentsAndMentionsPanel';
+import AttentionSection from '@/components/my-tasks/AttentionSection';
 import { latestAssignedRecentEntries } from '@/lib/recentTasks';
 
-type WorkTab = 'todo' | 'done' | 'delegated';
 type PageScope = 'team' | 'mine';
 
 const SCOPE_STORAGE_KEY = 'my-tasks:scope';
-
-const BUCKET_SECTIONS: { id: MyTaskBucket; label: string }[] = [
-    { id: 'today', label: 'Today' },
-    { id: 'overdue', label: 'Overdue' },
-    { id: 'next', label: 'Next' },
-    { id: 'unscheduled', label: 'Unscheduled' },
-];
 
 function StatusCircle({
     status,
@@ -138,32 +128,6 @@ function AssignedTaskRow({
     );
 }
 
-function MyWorkTaskRow({ task, onOpen }: { task: MyTaskItem; onOpen: (task: MyTaskItem) => void }) {
-    return (
-        <button
-            type="button"
-            onClick={() => onOpen(task)}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/80 flex items-start gap-2"
-        >
-            <span
-                className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
-                    task.priority === 'URGENT'
-                        ? 'bg-red-500'
-                        : task.priority === 'HIGH'
-                          ? 'bg-orange-400'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-            />
-            <span className="min-w-0">
-                <span className="text-sm text-gray-900 dark:text-white line-clamp-2">{task.title}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 block truncate">
-                    {taskLocationLabel(task)}
-                </span>
-            </span>
-        </button>
-    );
-}
-
 export default function MyTasksPage() {
     const { showToast } = useToast();
     const user = useAuthStore((s) => s.user);
@@ -173,8 +137,7 @@ export default function MyTasksPage() {
     const canManageTeam = role === 'ADMIN' || role === 'TEAM_LEAD';
 
     const [pageScope, setPageScope] = useState<PageScope>('team');
-    const [workTab, setWorkTab] = useState<WorkTab>('todo');
-    const [expandedBuckets, setExpandedBuckets] = useState<Set<MyTaskBucket>>(() => new Set());
+    const [expandedWorkAttention, setExpandedWorkAttention] = useState<Set<string>>(() => new Set());
     const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const { data, loading, refetch } = useQuery(GET_MY_TASKS, {
@@ -192,12 +155,29 @@ export default function MyTasksPage() {
         [allTasks],
     );
 
-    const doneTasks = useMemo(
-        () => allTasks.filter((t) => t.status === 'COMPLETED'),
-        [allTasks],
+    const overdueWorkTasks = useMemo(
+        () =>
+            openTasks
+                .filter((t) =>
+                    isTaskOverdue(t.dueDate, normalizeTaskStatus(t.status)),
+                )
+                .sort(sortByDueDate),
+        [openTasks],
     );
 
-    const buckets = useMemo(() => groupTasksByBucket(openTasks, false), [openTasks]);
+    const dueSoonWorkTasks = useMemo(
+        () =>
+            openTasks
+                .filter((t) =>
+                    isTaskDueWithinDays(
+                        t.dueDate,
+                        normalizeTaskStatus(t.status),
+                        TEAM_NEEDS_ATTENTION_DUE_DAYS,
+                    ),
+                )
+                .sort(sortByDueDate),
+        [openTasks],
+    );
 
     const assignedList = useMemo(
         () => [...openTasks].sort(sortByDueDate),
@@ -254,11 +234,11 @@ export default function MyTasksPage() {
         setDetailTaskId(task.id);
     };
 
-    const toggleBucket = (id: MyTaskBucket) => {
-        setExpandedBuckets((prev) => {
+    const toggleWorkAttention = (key: string) => {
+        setExpandedWorkAttention((prev) => {
             const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
             return next;
         });
     };
@@ -335,110 +315,88 @@ export default function MyTasksPage() {
                         />
                     </div>
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,380px)_1fr] gap-4 xl:items-stretch xl:h-[min(560px,65vh)]">
-                        {/* ——— My Work card ——— */}
+                        {/* ——— My Work: needs attention (employee + admin “My work”) ——— */}
                         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200/80 dark:border-gray-800 shadow-sm overflow-hidden flex flex-col min-h-0 max-h-[min(420px,50vh)] xl:max-h-none xl:h-full">
-                            <div className="px-4 pt-4 pb-0 border-b border-gray-100 dark:border-gray-800">
-                                <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                                    My Work
+                            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    Needs attention
                                 </h2>
-                                <div className="flex gap-6 border-b border-transparent">
-                                    {(
-                                        [
-                                            { id: 'todo' as WorkTab, label: 'To Do' },
-                                            { id: 'done' as WorkTab, label: 'Done' },
-                                            { id: 'delegated' as WorkTab, label: 'Delegated' },
-                                        ] as const
-                                    ).map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            type="button"
-                                            onClick={() => setWorkTab(tab.id)}
-                                            className={`pb-2.5 text-sm font-medium border-b-2 transition-colors ${
-                                                workTab === tab.id
-                                                    ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
-                                                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                                            }`}
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Overdue, due in the next {TEAM_NEEDS_ATTENTION_DUE_DAYS} days, and
+                                    tasks you delegated
+                                </p>
                             </div>
 
                             <div className="flex-1 min-h-0 overflow-y-auto px-2 py-2">
-                                {workTab === 'delegated' ? (
-                                    delegatedTasks.length === 0 ? (
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 px-3 py-8 text-center">
-                                            Tasks you created and assigned to others will appear here.
-                                        </p>
-                                    ) : (
-                                        delegatedTasks.map((task) => (
-                                            <MyWorkTaskRow
-                                                key={task.id}
-                                                task={task}
-                                                onOpen={openTask}
-                                            />
-                                        ))
-                                    )
-                                ) : workTab === 'done' ? (
-                                    doneTasks.length === 0 ? (
-                                        <p className="text-sm text-gray-500 px-3 py-8 text-center">
-                                            No completed tasks yet.
-                                        </p>
-                                    ) : (
-                                        doneTasks.map((task) => (
-                                            <MyWorkTaskRow
-                                                key={task.id}
-                                                task={task}
-                                                onOpen={openTask}
-                                            />
-                                        ))
-                                    )
+                                {overdueWorkTasks.length === 0 &&
+                                dueSoonWorkTasks.length === 0 &&
+                                delegatedTasks.length === 0 ? (
+                                    <p className="text-xs text-gray-400 px-3 py-6 text-center">
+                                        Nothing urgent — no overdue, upcoming due dates, or delegated
+                                        tasks.
+                                    </p>
                                 ) : (
-                                    BUCKET_SECTIONS.map((section) => {
-                                        const tasks = buckets[section.id];
-                                        const expanded = expandedBuckets.has(section.id);
-                                        return (
-                                            <div key={section.id} className="mb-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleBucket(section.id)}
-                                                    className="w-full flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg"
-                                                >
-                                                    {expanded ? (
-                                                        <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                                                    ) : (
-                                                        <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                                                    )}
-                                                    <span>
-                                                        {section.label}{' '}
-                                                        <span className="text-gray-400 font-normal">
-                                                            ({tasks.length})
-                                                        </span>
-                                                    </span>
-                                                </button>
-                                                {expanded && (
-                                                    <div className="pl-2 pb-2">
-                                                        {tasks.length === 0 ? (
-                                                            <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-2 leading-relaxed">
-                                                                {section.id === 'today'
-                                                                    ? 'Tasks and reminders assigned to you will show here.'
-                                                                    : 'No tasks in this group.'}
-                                                            </p>
-                                                        ) : (
-                                                            tasks.map((task) => (
-                                                                <MyWorkTaskRow
-                                                                    key={task.id}
-                                                                    task={task}
-                                                                    onOpen={openTask}
-                                                                />
-                                                            ))
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })
+                                    <>
+                                        <AttentionSection
+                                            id="overdue"
+                                            label="Overdue"
+                                            count={overdueWorkTasks.length}
+                                            expanded={expandedWorkAttention.has('overdue')}
+                                            onToggle={() => toggleWorkAttention('overdue')}
+                                            emptyText="No overdue tasks."
+                                        >
+                                            {overdueWorkTasks.map((task) => (
+                                                <AssignedTaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    isAdmin={isAdmin}
+                                                    onOpen={openTask}
+                                                    onStatusChange={handleStatusChange}
+                                                    updating={updatingId === task.id}
+                                                />
+                                            ))}
+                                        </AttentionSection>
+                                        <AttentionSection
+                                            id="dueSoon"
+                                            label={`Due within ${TEAM_NEEDS_ATTENTION_DUE_DAYS} days`}
+                                            count={dueSoonWorkTasks.length}
+                                            expanded={expandedWorkAttention.has('dueSoon')}
+                                            onToggle={() => toggleWorkAttention('dueSoon')}
+                                            emptyText={`No tasks due in the next ${TEAM_NEEDS_ATTENTION_DUE_DAYS} days.`}
+                                        >
+                                            {dueSoonWorkTasks.map((task) => (
+                                                <AssignedTaskRow
+                                                    key={task.id}
+                                                    task={task}
+                                                    isAdmin={isAdmin}
+                                                    onOpen={openTask}
+                                                    onStatusChange={handleStatusChange}
+                                                    updating={updatingId === task.id}
+                                                />
+                                            ))}
+                                        </AttentionSection>
+                                        <AttentionSection
+                                            id="delegated"
+                                            label="Delegated"
+                                            count={delegatedTasks.length}
+                                            expanded={expandedWorkAttention.has('delegated')}
+                                            onToggle={() => toggleWorkAttention('delegated')}
+                                            emptyText="No tasks you assigned to others."
+                                        >
+                                            {[...delegatedTasks]
+                                                .sort(sortByDueDate)
+                                                .map((task) => (
+                                                    <AssignedTaskRow
+                                                        key={task.id}
+                                                        task={task}
+                                                        isAdmin={isAdmin}
+                                                        onOpen={openTask}
+                                                        onStatusChange={handleStatusChange}
+                                                        updating={updatingId === task.id}
+                                                    />
+                                                ))}
+                                        </AttentionSection>
+                                    </>
                                 )}
                             </div>
                         </div>

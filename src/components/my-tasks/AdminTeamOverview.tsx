@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect, type ReactNode } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@apollo/client';
 import {
@@ -35,6 +35,7 @@ import {
 import { latestAssignedRecentEntries } from '@/lib/recentTasks';
 import AssignedProjectsCard from '@/components/my-tasks/AssignedProjectsCard';
 import RecentsCard from '@/components/my-tasks/RecentsCard';
+import AttentionSection from '@/components/my-tasks/AttentionSection';
 
 type AdminTeamOverviewProps = {
     onOpenTask: (task: MyTaskItem) => void;
@@ -164,53 +165,6 @@ function TeamTaskRow({
                 )}
                 <FlagIcon className={`h-4 w-4 ${priorityFlagClass(task.priority)}`} title={task.priority} />
             </div>
-        </div>
-    );
-}
-
-function AttentionSection({
-    id,
-    label,
-    count,
-    expanded,
-    onToggle,
-    emptyText,
-    children,
-}: {
-    id: string;
-    label: string;
-    count: number;
-    expanded: boolean;
-    onToggle: () => void;
-    emptyText: string;
-    children: ReactNode;
-}) {
-    return (
-        <div className="mb-1">
-            <button
-                type="button"
-                onClick={onToggle}
-                className="w-full flex items-center gap-2 px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg"
-            >
-                {expanded ? (
-                    <ChevronDownIcon className="h-4 w-4 text-gray-400" />
-                ) : (
-                    <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                )}
-                <span>
-                    {label}{' '}
-                    <span className="text-gray-400 font-normal">({count})</span>
-                </span>
-            </button>
-            {expanded && (
-                <div className="pb-2">
-                    {count === 0 ? (
-                        <p className="text-xs text-gray-400 px-3 py-2">{emptyText}</p>
-                    ) : (
-                        children
-                    )}
-                </div>
-            )}
         </div>
     );
 }
@@ -419,7 +373,7 @@ export default function AdminTeamOverview({ onOpenTask }: AdminTeamOverviewProps
                                     count={dueSoonTasks.length}
                                     expanded={expandedAttention.has('dueSoon')}
                                     onToggle={() => toggleAttention('dueSoon')}
-                                    emptyText="No tasks due in the next week."
+                                    emptyText={`No tasks due in the next ${TEAM_NEEDS_ATTENTION_DUE_DAYS} days.`}
                                 >
                                     {dueSoonTasks
                                         .filter((task) => isOpenTask(task.status))
