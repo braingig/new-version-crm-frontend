@@ -329,17 +329,23 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                             )}
                             </div>
 
-                            {/* Right — time entry activity */}
-                            <div className="min-h-0 flex flex-col border-t border-gray-100 dark:border-gray-800 lg:border-t-0 lg:border-l bg-gray-50/60 dark:bg-gray-800/30">
+                            {/* Right — all time entries for this task (newest first); scroll when long */}
+                            <div className="flex min-h-0 flex-col border-t border-gray-100 dark:border-gray-800 lg:border-t-0 lg:border-l bg-gray-50/60 dark:bg-gray-800/30 lg:max-h-[calc(90vh-4.5rem)]">
                                 <div className="shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
                                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                         Activity
+                                        {timeEntries.length > 0 ? (
+                                            <span className="font-normal text-gray-400">
+                                                {' '}
+                                                ({timeEntries.length})
+                                            </span>
+                                        ) : null}
                                     </p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Time logged on this task
+                                        All time logs on this task
                                     </p>
                                 </div>
-                                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                                <div className="min-h-0 max-h-[min(360px,45vh)] flex-1 overflow-y-auto overscroll-contain px-4 py-3 lg:max-h-none">
                                     {timeEntries.length === 0 ? (
                                         <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
                                             No time logged yet.
