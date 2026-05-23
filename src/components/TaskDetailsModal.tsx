@@ -123,7 +123,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 max-h-[90vh] flex flex-col">
+            <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 max-h-[90vh] flex flex-col">
                 <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary-50 via-transparent to-primary-100/40 dark:from-primary-900/20 dark:via-transparent dark:to-primary-800/10" />
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                     <div>
@@ -157,19 +157,21 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                     </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                <div className="min-h-0 flex-1 overflow-hidden">
                     {loading && (
-                        <div className="py-6 text-center text-gray-500 text-sm">
+                        <div className="py-6 text-center text-gray-500 text-sm px-5">
                             Loading task details...
                         </div>
                     )}
                     {error && (
-                        <div className="py-6 text-center text-red-500 text-sm">
+                        <div className="py-6 text-center text-red-500 text-sm px-5">
                             Failed to load task details.
                         </div>
                     )}
                     {task && !loading && !error && (
-                        <>
+                        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:min-h-0 lg:h-full lg:max-h-[calc(90vh-4.5rem)]">
+                            {/* Left — task details */}
+                            <div className="min-h-0 overflow-y-auto px-5 py-4 space-y-4">
                             <div id="task-description">
                                 <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
                                     Description
@@ -237,7 +239,7 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                             </div>
 
                             {/* Time tracking controls */}
-                            <div className="mt-4 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-3 flex items-center justify-between">
+                            <div className="rounded-md border border-gray-200 dark:border-gray-700 px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                         Time tracking
@@ -276,38 +278,6 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     )}
                                 </div>
                             </div>
-
-                            {/* Activity log of tracked time entries */}
-                            {timeEntries.length > 0 && (
-                                <div className="mt-4 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-3">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                                        Activity
-                                    </p>
-                                    <ul className="space-y-1 max-h-48 overflow-y-auto text-sm">
-                                        {timeEntries.map((entry: any) => {
-                                            const when = new Date(
-                                                entry.endTime || entry.startTime
-                                            ).toLocaleString();
-                                            const who = entry.employee?.name || 'You';
-                                            const durSeconds = entry.duration ?? 0;
-                                            return (
-                                                <li
-                                                    key={entry.id}
-                                                    className="flex items-center justify-between text-gray-700 dark:text-gray-200"
-                                                >
-                                                    <span>
-                                                        {who} tracked{' '}
-                                                        {formatDuration(durSeconds)}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                                                        {when}
-                                                    </span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            )}
 
                             {task.comments && task.comments.length > 0 && (
                                 <div id="task-comments">
@@ -357,8 +327,59 @@ export default function TaskDetailsModal({ taskId, isOpen, onClose }: TaskDetail
                                     </ul>
                                 </div>
                             )}
+                            </div>
 
-                        </>
+                            {/* Right — time entry activity */}
+                            <div className="min-h-0 flex flex-col border-t border-gray-100 dark:border-gray-800 lg:border-t-0 lg:border-l bg-gray-50/60 dark:bg-gray-800/30">
+                                <div className="shrink-0 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                        Activity
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Time logged on this task
+                                    </p>
+                                </div>
+                                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                                    {timeEntries.length === 0 ? (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
+                                            No time logged yet.
+                                        </p>
+                                    ) : (
+                                        <ul className="space-y-0 divide-y divide-gray-100 dark:divide-gray-800">
+                                            {timeEntries.map((entry: {
+                                                id: string;
+                                                endTime?: string;
+                                                startTime: string;
+                                                duration?: number;
+                                                employee?: { name?: string };
+                                            }) => {
+                                                const when = new Date(
+                                                    entry.endTime || entry.startTime,
+                                                ).toLocaleString();
+                                                const who = entry.employee?.name || 'You';
+                                                const durSeconds = entry.duration ?? 0;
+                                                return (
+                                                    <li
+                                                        key={entry.id}
+                                                        className="py-2.5 first:pt-0 last:pb-0"
+                                                    >
+                                                        <p className="text-sm text-gray-800 dark:text-gray-100">
+                                                            {who} tracked{' '}
+                                                            <span className="font-medium">
+                                                                {formatDuration(durSeconds)}
+                                                            </span>
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                            {when}
+                                                        </p>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
