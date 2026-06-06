@@ -1023,3 +1023,84 @@ export const SET_TASK_REVIEW_ADMINS = gql`
     }
   }
 `;
+
+export const GET_MEETINGS = gql`
+  query GetMeetings($filters: MeetingFiltersInput!) {
+    meetings(filters: $filters) {
+      id
+      title
+      description
+      projectId
+      startTime
+      endTime
+      location
+      project {
+        id
+        name
+      }
+      createdBy {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
+export const CREATE_MEETING = gql`
+  mutation CreateMeeting($input: CreateMeetingInput!) {
+    createMeeting(input: $input) {
+      id
+      title
+      description
+      projectId
+      startTime
+      endTime
+      location
+      project {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const UPDATE_MEETING = gql`
+  mutation UpdateMeeting($id: String!, $input: UpdateMeetingInput!) {
+    updateMeeting(id: $id, input: $input) {
+      id
+      title
+      description
+      projectId
+      startTime
+      endTime
+      location
+      project {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const DELETE_MEETING = gql`
+  mutation DeleteMeeting($id: String!) {
+    deleteMeeting(id: $id)
+  }
+`;
+
+export const GET_GOOGLE_CALENDAR_STATUS = gql`
+  query GetGoogleCalendarStatus {
+    googleCalendarStatus {
+      connected
+      googleEmail
+      connectedAt
+    }
+  }
+`;
+
+export const DISCONNECT_GOOGLE_CALENDAR = gql`
+  mutation DisconnectGoogleCalendar {
+    disconnectGoogleCalendar
+  }
+`;

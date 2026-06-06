@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, CheckIcon } from '@heroicons/react/24/outline';
+import { BellIcon, UserCircleIcon, ArrowRightOnRectangleIcon, CheckIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 import { useAuthStore } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation } from '@apollo/client';
@@ -201,6 +202,15 @@ export default function Header() {
                     </div>
 
                     <div className="hidden lg:block lg:h-6 lg:w-px lg:bg-gray-200 dark:lg:bg-gray-700" aria-hidden="true" />
+
+                    <Link
+                        href="/dashboard/settings"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-primary-400"
+                        title="Settings"
+                    >
+                        <Cog6ToothIcon className="h-5 w-5" />
+                        <span className="hidden sm:inline">Settings</span>
+                    </Link>
 
                     <div className="flex items-center gap-x-4">
                         <span className="hidden lg:flex lg:flex-col lg:items-end">

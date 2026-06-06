@@ -10,7 +10,9 @@ import {
     BanknotesIcon,
     ChartBarIcon,
     DocumentChartBarIcon,
+    CalendarDaysIcon,
     ClipboardDocumentListIcon,
+    Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/lib/store';
 import { getAllowedRoutes } from '@/lib/permissions';
@@ -22,11 +24,13 @@ const allNavigation = [
     { name: 'Projects', href: '/dashboard/projects', icon: FolderIcon },
     { name: 'My Tasks', href: '/dashboard/my-tasks', icon: ClipboardDocumentListIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClockIcon },
+    { name: 'Calendar', href: '/dashboard/calendar', icon: CalendarDaysIcon },
     // Time Tracker – commented out for now
     // { name: 'Time Tracker', href: '/dashboard/time-tracker', icon: ClockIcon },
     { name: 'Payroll', href: '/dashboard/payroll', icon: BanknotesIcon },
     { name: 'Sales', href: '/dashboard/sales', icon: ChartBarIcon },
     { name: 'Reports', href: '/dashboard/reports', icon: DocumentChartBarIcon },
+    { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 
 export default function Sidebar() {
