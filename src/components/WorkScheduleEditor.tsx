@@ -163,8 +163,8 @@ export interface WorkScheduleEditorProps {
     targetUserId?: string;
     targetName?: string;
     /**
-     * When true (e.g. admin on work-schedule page), saving “your” schedule also refetches the
-     * team table so your row updates without a full page reload.
+     * When true, saving “your” schedule also refetches the team schedules query
+     * (e.g. so the Employees table “on schedule now” column updates).
      */
     refetchTeamAfterMineSave?: boolean;
     /** When false, hides the “Editing …” banner (e.g. modal already shows the person). Default true. */

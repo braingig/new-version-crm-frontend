@@ -10,7 +10,6 @@ import {
     BanknotesIcon,
     ChartBarIcon,
     DocumentChartBarIcon,
-    CalendarDaysIcon,
     ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/lib/store';
@@ -23,7 +22,6 @@ const allNavigation = [
     { name: 'Projects', href: '/dashboard/projects', icon: FolderIcon },
     { name: 'My Tasks', href: '/dashboard/my-tasks', icon: ClipboardDocumentListIcon },
     { name: 'Tasks', href: '/dashboard/tasks', icon: ClockIcon },
-    { name: 'Work schedule', href: '/dashboard/work-schedule', icon: CalendarDaysIcon },
     // Time Tracker – commented out for now
     // { name: 'Time Tracker', href: '/dashboard/time-tracker', icon: ClockIcon },
     { name: 'Payroll', href: '/dashboard/payroll', icon: BanknotesIcon },
