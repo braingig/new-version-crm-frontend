@@ -21,6 +21,7 @@ export interface CalendarTaskLike {
   assignees?: { id: string; name: string }[] | null;
   subTasks?: CalendarTaskLike[] | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
   statusHistory?: CalendarStatusHistoryLike[] | null;
 }
 
