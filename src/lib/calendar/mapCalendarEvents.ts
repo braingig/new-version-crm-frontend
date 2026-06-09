@@ -9,24 +9,22 @@ import type {
   CalendarEventKind,
   CalendarFilterOptions,
   CalendarMeetingLike,
-  CalendarProjectLike,
   CalendarTaskLike,
   CrmCalendarEvent,
 } from './calendarTypes';
+import {
+  buildTaskStatusCalendarDays,
+  getTaskStatusHistory,
+  pushTaskStatusEvent,
+} from './taskStatusCalendar';
 
-function parseDate(value: string | null | undefined): Date | null {
+/** Parse meeting start/end with full date+time (do not strip to midnight). */
+function parseMeetingDateTime(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = parseISO(value);
-  if (!isValid(d)) {
-    const fallback = new Date(value);
-    return isValid(fallback) ? fallback : null;
-  }
-  return d;
-}
-
-function toDayStart(value: string | null | undefined): Date | null {
-  const d = parseDate(value);
-  return d ? startOfDay(d) : null;
+  if (isValid(d)) return d;
+  const fallback = new Date(value);
+  return isValid(fallback) ? fallback : null;
 }
 
 function overlapsRange(start: Date, end: Date, rangeStart: Date, rangeEnd: Date): boolean {
@@ -76,6 +74,8 @@ function pushEvent(
     status?: string;
     priority?: string;
     assigneeNames?: string[];
+    dueDate?: string;
+    startDate?: string;
   },
   rangeStart: Date,
   rangeEnd: Date,
@@ -100,12 +100,13 @@ function pushEvent(
       status: params.status,
       priority: params.priority,
       assigneeNames: params.assigneeNames,
+      dueDate: params.dueDate,
+      startDate: params.startDate,
     },
   });
 }
 
 export function mapCalendarEvents(
-  projects: CalendarProjectLike[],
   tasks: CalendarTaskLike[],
   options: CalendarFilterOptions,
 ): CrmCalendarEvent[] {
@@ -113,80 +114,12 @@ export function mapCalendarEvents(
     projectId,
     assigneeId,
     status,
-    showProjectDates = true,
-    showTaskDue = true,
-    showTaskStart = true,
+    showTaskStatus = true,
     rangeStart,
     rangeEnd,
   } = options;
 
   const events: CrmCalendarEvent[] = [];
-  const filteredProjects = (projects ?? []).filter((p) =>
-    projectId ? p.id === projectId : true,
-  );
-
-  if (showProjectDates) {
-    for (const project of filteredProjects) {
-      const start = toDayStart(project.startDate);
-      const end = toDayStart(project.endDate);
-
-      if (start && end && end.getTime() >= start.getTime()) {
-        pushEvent(
-          events,
-          {
-            id: `project-span-${project.id}`,
-            title: project.name,
-            start,
-            end: addDays(end, 1),
-            allDay: true,
-            kind: 'PROJECT_SPAN',
-            projectId: project.id,
-            projectName: project.name,
-            status: project.status ?? undefined,
-          },
-          rangeStart,
-          rangeEnd,
-        );
-      } else {
-        if (start) {
-          pushEvent(
-            events,
-            {
-              id: `project-start-${project.id}`,
-              title: `Start: ${project.name}`,
-              start,
-              end: addDays(start, 1),
-              allDay: true,
-              kind: 'PROJECT_START',
-              projectId: project.id,
-              projectName: project.name,
-              status: project.status ?? undefined,
-            },
-            rangeStart,
-            rangeEnd,
-          );
-        }
-        if (end) {
-          pushEvent(
-            events,
-            {
-              id: `project-end-${project.id}`,
-              title: `Deadline: ${project.name}`,
-              start: end,
-              end: addDays(end, 1),
-              allDay: true,
-              kind: 'PROJECT_END',
-              projectId: project.id,
-              projectName: project.name,
-              status: project.status ?? undefined,
-            },
-            rangeStart,
-            rangeEnd,
-          );
-        }
-      }
-    }
-  }
 
   const flatTasks = flattenCalendarTasks(tasks ?? []).filter((task) => {
     if (projectId && task.projectId !== projectId) return false;
@@ -198,57 +131,33 @@ export function mapCalendarEvents(
   for (const task of flatTasks) {
     const assigneeNames = (task.assignees ?? []).map((a) => a.name);
     const projectName = task.project?.name;
-    const due = toDayStart(task.dueDate);
-    const start = toDayStart(task.startDate);
 
-    if (showTaskDue && due) {
-      pushEvent(
-        events,
-        {
-          id: `task-due-${task.id}`,
-          title: task.title,
-          start: due,
-          end: addDays(due, 1),
-          allDay: true,
-          kind: 'TASK_DUE',
-          projectId: task.projectId ?? undefined,
-          taskId: task.id,
-          projectName,
-          taskTitle: task.title,
-          status: task.status ?? undefined,
-          priority: task.priority ?? undefined,
-          assigneeNames,
-        },
-        rangeStart,
-        rangeEnd,
-      );
-    }
+    if (!showTaskStatus) continue;
 
-    if (showTaskStart && start && (!due || start.getTime() !== due.getTime())) {
-      pushEvent(
-        events,
-        {
-          id: `task-start-${task.id}`,
-          title: task.title,
-          start,
-          end: addDays(start, 1),
-          allDay: true,
-          kind: 'TASK_START',
-          projectId: task.projectId ?? undefined,
-          taskId: task.id,
-          projectName,
-          taskTitle: task.title,
-          status: task.status ?? undefined,
-          priority: task.priority ?? undefined,
-          assigneeNames,
-        },
-        rangeStart,
-        rangeEnd,
-      );
+    const history = getTaskStatusHistory(task);
+    const statusDays = buildTaskStatusCalendarDays(history, rangeStart, rangeEnd);
+
+    for (const { day, status, historyId } of statusDays) {
+      pushTaskStatusEvent(events, {
+        task,
+        day,
+        displayStatus: status,
+        historyId,
+        projectName,
+        assigneeNames,
+      });
     }
   }
 
   return events.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+/** @deprecated Use mapCalendarEvents — project milestones are no longer shown on the calendar. */
+export function mapTaskCalendarEvents(
+  tasks: CalendarTaskLike[],
+  options: CalendarFilterOptions,
+): CrmCalendarEvent[] {
+  return mapCalendarEvents(tasks, options);
 }
 
 export function mapMeetingsToCalendarEvents(
@@ -265,8 +174,8 @@ export function mapMeetingsToCalendarEvents(
   for (const meeting of meetings ?? []) {
     if (projectId && meeting.projectId !== projectId) continue;
 
-    const start = parseDate(meeting.startTime);
-    const end = parseDate(meeting.endTime);
+    const start = parseMeetingDateTime(meeting.startTime);
+    const end = parseMeetingDateTime(meeting.endTime);
     if (!start || !end) continue;
 
     pushEvent(

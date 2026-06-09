@@ -4,6 +4,7 @@ export type CalendarEventKind =
   | 'PROJECT_END'
   | 'TASK_DUE'
   | 'TASK_START'
+  | 'TASK_STATUS'
   | 'MEETING';
 
 export interface CalendarTaskLike {
@@ -19,6 +20,15 @@ export interface CalendarTaskLike {
   project?: { id: string; name: string } | null;
   assignees?: { id: string; name: string }[] | null;
   subTasks?: CalendarTaskLike[] | null;
+  createdAt?: string | null;
+  statusHistory?: CalendarStatusHistoryLike[] | null;
+}
+
+export interface CalendarStatusHistoryLike {
+  id: string;
+  status: string;
+  startedAt: string;
+  endedAt?: string | null;
 }
 
 export interface CalendarProjectLike {
@@ -53,6 +63,8 @@ export interface CalendarEventMeta {
   priority?: string;
   assigneeNames?: string[];
   parentTitle?: string;
+  dueDate?: string;
+  startDate?: string;
 }
 
 export interface CrmCalendarEvent {
@@ -68,7 +80,7 @@ export interface CalendarFilterOptions {
   projectId?: string | null;
   assigneeId?: string | null;
   status?: string | null;
-  showProjectDates?: boolean;
+  showTaskStatus?: boolean;
   showTaskDue?: boolean;
   showTaskStart?: boolean;
   rangeStart: Date;

@@ -15,6 +15,7 @@ export default function CalendarEventChip({ event, onClick, compact = false }: C
     event.resource.kind,
     event.resource.status,
     event.resource.priority,
+    event.resource.dueDate,
   );
   const display = getCalendarGridDisplay(event);
 
@@ -35,14 +36,16 @@ export default function CalendarEventChip({ event, onClick, compact = false }: C
         color: colors.text,
       }}
     >
-      <div className="flex items-start gap-1">
-        <span
-          className={`shrink-0 rounded px-1 py-0.5 font-bold uppercase ${
-            compact ? 'text-[8px]' : 'text-[9px]'
-          }`}
-        >
-          {display.badge}
-        </span>
+      <div className={`flex items-start ${display.badge ? 'gap-1' : ''}`}>
+        {display.badge ? (
+          <span
+            className={`shrink-0 rounded px-1 py-0.5 font-bold uppercase ${
+              compact ? 'text-[8px]' : 'text-[9px]'
+            }`}
+          >
+            {display.badge}
+          </span>
+        ) : null}
         <span
           className={`min-w-0 flex-1 truncate font-semibold leading-tight ${
             compact ? 'text-[10px]' : 'text-xs'

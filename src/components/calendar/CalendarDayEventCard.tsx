@@ -19,6 +19,7 @@ export default function CalendarDayEventCard({ event, onClick }: CalendarDayEven
     event.resource.kind,
     event.resource.status,
     event.resource.priority,
+    event.resource.dueDate,
   );
   const display = getCalendarDayPanelDisplay(event);
   const joinUrl =
@@ -41,10 +42,12 @@ export default function CalendarDayEventCard({ event, onClick }: CalendarDayEven
         title={display.tooltip ?? [display.primary, display.subtitle].filter(Boolean).join(' · ')}
         className="w-full text-left"
       >
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0 rounded bg-white/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide dark:bg-black/20">
-            {display.badge}
-          </span>
+        <div className={`flex items-start ${display.badge ? 'gap-2' : ''}`}>
+          {display.badge ? (
+            <span className="mt-0.5 shrink-0 rounded bg-white/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide dark:bg-black/20">
+              {display.badge}
+            </span>
+          ) : null}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold leading-snug text-gray-900 dark:text-white">
               {display.primary}

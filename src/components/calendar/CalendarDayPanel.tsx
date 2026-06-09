@@ -3,10 +3,7 @@
 import { format } from 'date-fns';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { getEventsForDay } from '@/lib/calendar/calendarGrid';
-import {
-  getMeetingEventsForDay,
-  getTaskEventsForDay,
-} from '@/lib/calendar/calendarDisplay';
+import { getMeetingEventsForDay, getTaskEventsForDay } from '@/lib/calendar/calendarDisplay';
 import type { CrmCalendarEvent } from '@/lib/calendar/calendarTypes';
 import CalendarDayEventCard from './CalendarDayEventCard';
 
@@ -24,9 +21,9 @@ export default function CalendarDayPanel({
   onSelectEvent,
 }: CalendarDayPanelProps) {
   const dayEvents = getEventsForDay(events, day);
-  const tasks = getTaskEventsForDay(dayEvents);
   const meetings = getMeetingEventsForDay(dayEvents);
-  const totalCount = tasks.length + meetings.length;
+  const tasks = getTaskEventsForDay(dayEvents);
+  const totalCount = meetings.length + tasks.length;
 
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/40">
@@ -94,6 +91,7 @@ export default function CalendarDayPanel({
               </div>
             </section>
           )}
+
         </div>
       )}
     </div>

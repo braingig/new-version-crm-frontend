@@ -21,7 +21,6 @@ import {
 import type { CrmCalendarEvent } from '@/lib/calendar/calendarTypes';
 import {
   isMeetingCalendarEvent,
-  isTaskCalendarEvent,
 } from '@/lib/calendar/calendarDisplay';
 import CalendarMonthView from './CalendarMonthView';
 import CalendarWeekView from './CalendarWeekView';
@@ -52,9 +51,7 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
   const [projectFilter, setProjectFilter] = useState(initialProjectId ?? 'all');
   const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('');
-  const [showProjectDates] = useState(false);
-  const [showTaskDue, setShowTaskDue] = useState(true);
-  const [showTaskStart, setShowTaskStart] = useState(true);
+  const [showTaskStatus, setShowTaskStatus] = useState(true);
   const [showMeetings, setShowMeetings] = useState(true);
   const [myTasksOnly, setMyTasksOnly] = useState(false);
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
@@ -100,27 +97,15 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
 
   const taskEvents = useMemo(
     () =>
-      mapCalendarEvents(projects, tasks, {
+      mapCalendarEvents(tasks, {
         projectId: projectFilter === 'all' ? null : projectFilter,
         assigneeId: effectiveAssigneeId,
         status: statusFilter || null,
-        showProjectDates,
-        showTaskDue,
-        showTaskStart,
+        showTaskStatus,
         rangeStart: visibleRange.start,
         rangeEnd: visibleRange.end,
-      }).filter(isTaskCalendarEvent),
-    [
-      projects,
-      tasks,
-      projectFilter,
-      effectiveAssigneeId,
-      statusFilter,
-      showProjectDates,
-      showTaskDue,
-      showTaskStart,
-      visibleRange,
-    ],
+      }),
+    [tasks, projectFilter, effectiveAssigneeId, statusFilter, showTaskStatus, visibleRange],
   );
 
   const meetingEvents = useMemo(
@@ -136,7 +121,8 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
   );
 
   const calendarEvents = useMemo(
-    () => [...taskEvents, ...meetingEvents].sort((a, b) => a.start.getTime() - b.start.getTime()),
+    () =>
+      [...taskEvents, ...meetingEvents].sort((a, b) => a.start.getTime() - b.start.getTime()),
     [taskEvents, meetingEvents],
   );
 
@@ -273,20 +259,11 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
-              checked={showTaskDue}
-              onChange={(e) => setShowTaskDue(e.target.checked)}
+              checked={showTaskStatus}
+              onChange={(e) => setShowTaskStatus(e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
             />
-            Task due dates
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input
-              type="checkbox"
-              checked={showTaskStart}
-              onChange={(e) => setShowTaskStart(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-            />
-            Task start dates
+            Tasks (by status timeline)
           </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
@@ -340,11 +317,32 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
       </div>
 
       {/* Legend */}
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        Tasks use due/start dates and show the <strong className="font-medium text-gray-700 dark:text-gray-300">project name</strong> on
-        the grid. Meetings show <strong className="font-medium text-gray-700 dark:text-gray-300">time + project</strong>. Click a day
-        for details, or click a meeting to edit it.
-      </p>
+      <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-gray-400">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-indigo-500 bg-indigo-100" />
+          To Do
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-blue-500 bg-blue-100" />
+          In Progress (each day from start through today)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-purple-500 bg-purple-100" />
+          Review (status set day)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-green-500 bg-green-100" />
+          Complete
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-rose-500 bg-rose-100" />
+          Overdue (past due, not complete)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-amber-500 bg-amber-100" />
+          Meeting
+        </span>
+      </div>
 
       {/* Calendar grid */}
       {loading ? (

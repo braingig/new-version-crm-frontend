@@ -11,13 +11,7 @@ function CalendarPageContent() {
   return (
     <div>
       <div className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-widest text-primary-600 dark:text-primary-400">
-          Planning
-        </p>
         <h1 className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">Calendar</h1>
-        <p className="mt-2 max-w-2xl text-sm text-gray-600 dark:text-gray-400">
-          Task due dates on the calendar, labeled by project. Select a day to see the project and task names.
-        </p>
       </div>
 
       <ProjectCalendar initialProjectId={projectId} />

@@ -206,6 +206,12 @@ export const GET_TASKS = gql`
       parentTaskId
       createdAt
       updatedAt
+      statusHistory {
+        id
+        status
+        startedAt
+        endedAt
+      }
       project {
         id
         name
@@ -229,12 +235,19 @@ export const GET_TASKS = gql`
         projectId
         listId
         assignedToId
+        startDate
         dueDate
         estimatedTime
         timeSpent
         parentTaskId
         createdAt
         updatedAt
+        statusHistory {
+          id
+          status
+          startedAt
+          endedAt
+        }
         createdBy {
           id
           name
@@ -264,7 +277,14 @@ export const GET_TASKS = gql`
           listId
           assignedToId
           dueDate
+          createdAt
           updatedAt
+          statusHistory {
+            id
+            status
+            startedAt
+            endedAt
+          }
           parentTaskId
           project {
             id

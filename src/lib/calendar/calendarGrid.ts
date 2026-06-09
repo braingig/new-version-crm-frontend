@@ -41,9 +41,7 @@ export function getEventsForDay(events: CrmCalendarEvent[], day: Date): CrmCalen
   const dayEnd = endOfDay(day);
   const matched = events.filter((event) => {
     if (event.allDay) {
-      const eventStart = startOfDay(event.start);
-      const eventEnd = startOfDay(event.end);
-      return eventStart <= dayStart && eventEnd > dayStart;
+      return isSameDay(event.start, day);
     }
     return event.start <= dayEnd && event.end > dayStart;
   });
