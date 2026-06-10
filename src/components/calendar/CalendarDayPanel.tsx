@@ -26,8 +26,8 @@ export default function CalendarDayPanel({
   const totalCount = meetings.length + tasks.length;
 
   return (
-    <div className="rounded-2xl border border-gray-200/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/40">
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/40">
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-widest text-primary-600 dark:text-primary-400">
             Selected day
@@ -61,37 +61,38 @@ export default function CalendarDayPanel({
       </div>
 
       {totalCount === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+        <p className="shrink-0 rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
           No tasks or meetings on this day.
         </p>
       ) : (
-        <div className="space-y-5">
-          {meetings.length > 0 && (
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                Meetings
-              </h4>
-              <div className="space-y-2">
-                {meetings.map((event) => (
-                  <CalendarDayEventCard key={event.id} event={event} onClick={onSelectEvent} />
-                ))}
-              </div>
-            </section>
-          )}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
+          <div className="space-y-5">
+            {meetings.length > 0 && (
+              <section>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                  Meetings
+                </h4>
+                <div className="space-y-2">
+                  {meetings.map((event) => (
+                    <CalendarDayEventCard key={event.id} event={event} onClick={onSelectEvent} />
+                  ))}
+                </div>
+              </section>
+            )}
 
-          {tasks.length > 0 && (
-            <section>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">
-                Tasks
-              </h4>
-              <div className="space-y-2">
-                {tasks.map((event) => (
-                  <CalendarDayEventCard key={event.id} event={event} onClick={onSelectEvent} />
-                ))}
-              </div>
-            </section>
-          )}
-
+            {tasks.length > 0 && (
+              <section>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary-700 dark:text-primary-400">
+                  Tasks
+                </h4>
+                <div className="space-y-2">
+                  {tasks.map((event) => (
+                    <CalendarDayEventCard key={event.id} event={event} onClick={onSelectEvent} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       )}
     </div>

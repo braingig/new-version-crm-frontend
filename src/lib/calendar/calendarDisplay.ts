@@ -100,7 +100,10 @@ export function getCalendarGridDisplay(event: CrmCalendarEvent): CalendarEventDi
     const meetingTitle = getMeetingTitle(event);
     const projectName = getProjectLabel(event);
     const timeRange = formatMeetingTimeRange(event);
-    const metaParts = [timeRange, location].filter(Boolean);
+    const assigneePart = assigneeNames?.length
+      ? assigneeNames.join(', ')
+      : undefined;
+    const metaParts = [timeRange, location, assigneePart].filter(Boolean);
 
     return {
       badge: format(event.start, 'h:mm a'),
@@ -171,14 +174,17 @@ export function getCalendarDayPanelDisplay(event: CrmCalendarEvent): CalendarEve
     const meetingTitle = getMeetingTitle(event);
     const projectName = getProjectLabel(event);
     const timeRange = formatMeetingTimeRange(event);
-    const meta = [timeRange, location].filter(Boolean).join(' · ');
+    const assigneePart = assigneeNames?.length
+      ? assigneeNames.join(', ')
+      : undefined;
+    const meta = [timeRange, location, assigneePart].filter(Boolean).join(' · ');
 
     return {
       badge: 'Meeting',
       primary: projectName,
       subtitle: meetingTitle,
       meta: meta || undefined,
-      tooltip: [projectName, meetingTitle, timeRange].join(' · '),
+      tooltip: [projectName, meetingTitle, timeRange, assigneePart].filter(Boolean).join(' · '),
     };
   }
 

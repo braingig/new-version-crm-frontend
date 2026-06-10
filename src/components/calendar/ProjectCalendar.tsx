@@ -350,7 +350,7 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
           <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary-600" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px] xl:items-stretch">
           <div className="min-w-0">
             {viewMode === 'month' ? (
               <CalendarMonthView
@@ -372,7 +372,7 @@ export default function ProjectCalendar({ initialProjectId = null }: ProjectCale
           </div>
 
           {selectedDay && (
-            <div className="xl:sticky xl:top-6 xl:self-start">
+            <div className="flex max-h-[28rem] min-h-0 flex-col xl:h-full xl:max-h-none">
               <CalendarDayPanel
                 day={selectedDay}
                 events={calendarEvents}

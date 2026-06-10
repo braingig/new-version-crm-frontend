@@ -49,6 +49,7 @@ export interface CalendarMeetingLike {
   endTime: string;
   location?: string | null;
   project?: { id: string; name: string } | null;
+  assignees?: { id: string; name: string }[] | null;
 }
 
 export interface CalendarEventMeta {

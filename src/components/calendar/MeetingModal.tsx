@@ -4,11 +4,16 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { format, parseISO } from 'date-fns';
-import { ArrowTopRightOnSquareIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowTopRightOnSquareIcon,
+  ChevronDownIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
 import {
   CREATE_MEETING,
   DELETE_MEETING,
   GET_GOOGLE_CALENDAR_STATUS,
+  GET_USERS,
   UPDATE_MEETING,
 } from '@/lib/graphql/queries';
 import { useToast } from '@/components/ToastProvider';
@@ -23,6 +28,7 @@ export interface MeetingFormData {
   startTime: string;
   endTime: string;
   location: string;
+  assigneeIds: string[];
 }
 
 interface MeetingModalProps {
@@ -44,6 +50,7 @@ function defaultFormValues(date: Date, projectId = ''): MeetingFormData {
     startTime: '09:00',
     endTime: '10:00',
     location: '',
+    assigneeIds: [],
   };
 }
 
@@ -68,13 +75,19 @@ export default function MeetingModal({
     defaultFormValues(new Date(), defaultProjectId),
   );
   const [generateMeetLink, setGenerateMeetLink] = useState(false);
+  const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
 
   const { data: googleStatusData } = useQuery(GET_GOOGLE_CALENDAR_STATUS, {
     skip: !isOpen,
     fetchPolicy: 'network-only',
   });
 
+  const { data: usersData } = useQuery(GET_USERS, {
+    skip: !isOpen,
+  });
+
   const googleConnected = Boolean(googleStatusData?.googleCalendarStatus?.connected);
+  const users = usersData?.users ?? [];
 
   const [createMeeting, { loading: creating }] = useMutation(CREATE_MEETING);
   const [updateMeeting, { loading: updating }] = useMutation(UPDATE_MEETING);
@@ -90,11 +103,13 @@ export default function MeetingModal({
     if (meeting) {
       setFormData(meeting);
       setGenerateMeetLink(false);
+      setAssigneeDropdownOpen(false);
       return;
     }
 
     setFormData(defaultFormValues(initialDate ?? new Date(), defaultProjectId));
     setGenerateMeetLink(false);
+    setAssigneeDropdownOpen(false);
   }, [isOpen, meeting, defaultProjectId, initialDate]);
 
   useEffect(() => {
@@ -144,6 +159,7 @@ export default function MeetingModal({
         endTime,
         location: generateMeetLink ? undefined : formData.location.trim() || undefined,
         generateMeetLink: generateMeetLink || undefined,
+        assigneeIds: formData.assigneeIds,
       };
 
       if (isEditing && formData.id) {
@@ -253,6 +269,75 @@ export default function MeetingModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="label">Assignees</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAssigneeDropdownOpen((prev) => !prev)}
+                className="input flex w-full items-center justify-between text-left"
+              >
+                <span>
+                  {formData.assigneeIds.length > 0
+                    ? `${formData.assigneeIds.length} selected`
+                    : 'Select assignees'}
+                </span>
+                <ChevronDownIcon
+                  className={`h-4 w-4 shrink-0 text-gray-500 transition-transform duration-200 ${
+                    assigneeDropdownOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+              <div
+                className={`absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-48 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-lg transition-all duration-200 dark:border-gray-700 dark:bg-gray-800 ${
+                  assigneeDropdownOpen
+                    ? 'pointer-events-auto scale-100 opacity-100'
+                    : 'pointer-events-none scale-95 opacity-0'
+                }`}
+              >
+                {users.length === 0 ? (
+                  <p className="px-2 py-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No users available
+                  </p>
+                ) : (
+                  users.map((user: { id: string; name: string }) => {
+                    const checked = formData.assigneeIds.includes(user.id);
+                    return (
+                      <label
+                        key={user.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 transition-colors ${
+                          checked
+                            ? 'bg-primary-50 dark:bg-primary-900/20'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const nextIds = e.target.checked
+                              ? [...formData.assigneeIds, user.id]
+                              : formData.assigneeIds.filter((id) => id !== user.id);
+                            setFormData((prev) => ({ ...prev, assigneeIds: nextIds }));
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span className="truncate text-sm text-gray-900 dark:text-white">
+                          {user.name}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+            {formData.assigneeIds.length > 0 && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Assignees will receive a notification when the meeting is saved.
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -420,6 +505,7 @@ export function meetingToFormData(meeting: {
   startTime: string;
   endTime: string;
   location?: string | null;
+  assignees?: { id: string }[] | null;
 }): MeetingFormData {
   const start = parseISO(meeting.startTime);
   const end = parseISO(meeting.endTime);
@@ -433,5 +519,6 @@ export function meetingToFormData(meeting: {
     startTime: format(start, 'HH:mm'),
     endTime: format(end, 'HH:mm'),
     location: meeting.location ?? '',
+    assigneeIds: meeting.assignees?.map((a) => a.id) ?? [],
   };
 }

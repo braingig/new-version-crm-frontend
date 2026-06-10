@@ -1063,6 +1063,11 @@ export const GET_MEETINGS = gql`
         name
         email
       }
+      assignees {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -1081,6 +1086,11 @@ export const CREATE_MEETING = gql`
         id
         name
       }
+      assignees {
+        id
+        name
+        email
+      }
     }
   }
 `;
@@ -1098,6 +1108,11 @@ export const UPDATE_MEETING = gql`
       project {
         id
         name
+      }
+      assignees {
+        id
+        name
+        email
       }
     }
   }

@@ -192,6 +192,7 @@ export function mapMeetingsToCalendarEvents(
         projectName: meeting.project?.name,
         meetingTitle: meeting.title,
         location: meeting.location ?? undefined,
+        assigneeNames: meeting.assignees?.map((a) => a.name),
       },
       rangeStart,
       rangeEnd,
